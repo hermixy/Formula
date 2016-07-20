@@ -62,7 +62,7 @@ int main(void)
         function.clearCodes();
         if(parse(&function, expression.c_str())) {
             std::cout << function << std::endl;
-            VM vm(&function);
+			VM vm(&function);
             vm.run();
         }
         std::cout << ">>";

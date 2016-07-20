@@ -58,6 +58,12 @@ WS          [ \r\n\t]*
 	return TOKEN_INTEGER; 
 }
 
+[_a-zA-Z][_a-zA-Z0-9]*			{ 
+	yylval->id.str = yytext;
+	yylval->id.len = yyleng;
+	return TOKEN_IDENTIFIER; 
+}
+
 {WS}	{ /* skip  */ }
 "("		{ return '('; }
 ")"		{ return ')'; }
@@ -66,6 +72,7 @@ WS          [ \r\n\t]*
 "*"		{ return '*'; }
 "/"		{ return '/'; }
 "^"		{ return '^'; }
+"="		{ return '='; }
 .		{ /*error*/
 	return *yytext;
 }

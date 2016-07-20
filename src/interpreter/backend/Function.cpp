@@ -89,6 +89,7 @@ const Operand & Function::getConstant(std::size_t i) const
 std::size_t Function::addLocalSymbolInfo(const LocalSymbolInfo &localInfo) 
 {
     locals.push_back(localInfo);
+    ntemps++;
     return locals.size() - 1;
 }
 
@@ -99,7 +100,7 @@ std::size_t Function::addParam(const LocalSymbolInfo &paramInfo)
     return locals.size() - 1;
 }
 
-std::size_t Function::addUpavalueInfo(const UpvalueInfo &upvalueInfo) 
+std::size_t Function::addUpvalueInfo(const UpvalueInfo &upvalueInfo)
 {
     upvalueInfos.push_back(upvalueInfo);
     return upvalueInfos.size() - 1;
@@ -209,4 +210,46 @@ int Function::newTemp(int index)
         return index;
     else
         return ntemps++;
+}
+
+// Allocate temporary register index
+int Function::newTemp()
+{
+    return ntemps++;
+}
+
+int Function::getUpvalue(string name) const
+{
+    int i = 0;
+    for(auto &up : upvalueInfos) {
+        if(up.name == name)
+            return i;
+        i++;
+    }
+    return -1;
+}
+
+int Function::getLocalSymbol(string name) const
+{
+    int i = 0;
+    for(auto &local : locals) {
+        if(local.name == name)
+            return i;
+        i++;
+    }
+    return -1;
+}
+
+int Function::getParentUpvalue(string name) const
+{
+    if(parent)
+        return parent->getUpvalue(name);
+    return -1;
+}
+
+int Function::getParentLocalSymbol(string name) const
+{
+    if(parent)
+        return parent->getLocalSymbol(name);
+    return -1;
 }

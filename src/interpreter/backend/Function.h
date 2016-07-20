@@ -60,7 +60,7 @@ struct LocalSymbolInfo {
 // class object. This class contains some static information generated after parsing.
 class Function {
 public:
-    Function(string name):name(name), nparams(0), nresults(0), nslots(0), ntemps(0) {
+    Function(string name):name(name), nparams(0), nresults(0), nslots(0), ntemps(0), parent(nullptr) {
         constants.push_back(Operand());
     }
 
@@ -109,7 +109,7 @@ public:
         return locals.size();
     }
 
-    std::size_t addUpavalueInfo(const UpvalueInfo &upvalueInfo);
+    std::size_t addUpvalueInfo(const UpvalueInfo &upvalueInfo);
 
     int upvalueCount() const {
         return upvalueInfos.size();
@@ -118,6 +118,11 @@ public:
     const UpvalueInfo *getUpvalueInfo(std::size_t index) const {
         return &upvalueInfos[index];
     }
+
+    int getUpvalue(string name) const;
+    int getLocalSymbol(string name) const;
+    int getParentUpvalue(string name) const;
+    int getParentLocalSymbol(string name) const;
 
     Function * createChild(string name);
     Function * getChild(std::size_t index);
@@ -137,6 +142,8 @@ public:
     int newTemp(int index1, int index2);
     // Allocate temporary register index for unary expression result
     int newTemp(int index);
+    // Allocate temporary register index
+    int newTemp();
 
 private:
     // Function name
@@ -161,6 +168,8 @@ private:
     std::vector<UpvalueInfo> upvalueInfos;
     // Temporaries
     int ntemps;
+    // Parent function
+    Function *parent;
 };
 
 // All runtime function are closures, this class object pointer to a

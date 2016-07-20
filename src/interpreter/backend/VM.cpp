@@ -31,7 +31,6 @@ VM::VM(Function *mfunction): mfunction(mfunction)
 void VM::run()
 {
     try {
-
         while (!calls.empty()) {
             bool finish = false;
             while (!finish) {

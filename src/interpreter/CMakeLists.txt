@@ -66,6 +66,7 @@ aux_source_directory(. SOURCES)
 add_executable(formula
 	${BISON_Parser_OUTPUTS}
 	${FLEX_Lexer_OUTPUTS}
+	frontend/Semantic.cpp
 	backend/Operand.cpp
 	backend/Function.cpp
 	backend/Code.cpp
