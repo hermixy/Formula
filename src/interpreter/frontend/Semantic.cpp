@@ -14,3 +14,17 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "Semantic.h"
+
+SemanticInfo * merge(SemanticInfo *info1, SemanticInfo *info2)
+{
+	SemanticInfo *rear = info1; 
+	if(!info1 || !info2) 
+		throw "Invalid semantic information merge";
+	
+	while(rear->next)
+		rear = rear->next;
+
+	rear->next = info2;
+
+	return info1;
+}

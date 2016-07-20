@@ -69,6 +69,9 @@ typedef void* yyscan_t;
 %token <integer> TOKEN_INTEGER
 %token <id> TOKEN_IDENTIFIER
  
+%type <info> target_list 
+%type <info> target
+%type <info> expression_list 
 %type <info> additive_expression
 %type <info> multiplicative_expression
 %type <info> unary_expression
@@ -92,27 +95,69 @@ statement_list
 	;
 
 assignment_statement
-	: TOKEN_IDENTIFIER '=' additive_expression
+	: target_list '=' expression_list 
 	{
-		int index;
-		string name = string($1.str, $1.len);
-		if((index = function->getLocalSymbol(name)) != -1) {
-			if($3->index != index)
-				function->addCode(Code(Code::Move, $3->index, 0, index), @1.first_line);
-		} else if((index = function->getUpvalue(name)) != -1) {
-			function->addCode(Code(Code::SetUpval, $3->index, 0, index), @1.first_line);
-		} else if((index = function->getParentLocalSymbol(name)) != -1) {
-			index = function->addUpvalueInfo(UpvalueInfo(name, true, index));
-			function->addCode(Code(Code::SetUpval, $3->index, 0, index), @1.first_line);
-		} else if((index = function->getParentLocalSymbol(name)) != -1) {
-			index = function->addUpvalueInfo(UpvalueInfo(name, false, index));
-			function->addCode(Code(Code::SetUpval, $3->index, 0, index), @1.first_line);
-		} else {
-			index = function->addLocalSymbolInfo(LocalSymbolInfo(name, function->localSymbolCount()));
-			if($3->index != index)
-				function->addCode(Code(Code::Move, $3->index, 0, index), @1.first_line);
+		auto target = $1;
+		auto expression = $3;
+		int idst; // target index(location)
+		int isrc; // expression index(location)
+		int start = function->codeSize(); // start index of move instructions
+		int end; // end index of move instructions
+		// If there are more values than needed, the excess values are thrown away. 
+		// If there are fewer values than needed, the last value of expression list is extended with as many as needed.
+		while((target && expression) || target) {
+			string name = target->name; 
+
+			if(expression) isrc = expression->index;
+			if((idst = function->getLocalSymbol(name)) != -1) {
+				if(isrc != idst)
+					function->addCode(Code(Code::Move, isrc, 0, idst), @1.first_line);
+			} else if((idst = function->getUpvalue(name)) != -1) {
+				function->addCode(Code(Code::SetUpval, isrc, 0, idst), @1.first_line);
+			} else if((idst = function->getParentLocalSymbol(name)) != -1) {
+				idst = function->addUpvalueInfo(UpvalueInfo(name, true, idst));
+				function->addCode(Code(Code::SetUpval, isrc, 0, idst), @1.first_line);
+			} else if((idst = function->getParentLocalSymbol(name)) != -1) {
+				idst = function->addUpvalueInfo(UpvalueInfo(name, false, idst));
+				function->addCode(Code(Code::SetUpval, isrc, 0, idst), @1.first_line);
+			} else {
+				std::cout << "add " << name << std::endl;
+				idst = function->addLocalSymbolInfo(LocalSymbolInfo(name, function->localSymbolCount()));
+				if(isrc != idst)
+					function->addCode(Code(Code::Move, isrc, 0, idst), @1.first_line);
+			}
+			target = target->next;
+			if(expression) expression = expression->next;
 		}
+		end = function->codeSize()-1;
+		function->reverseCodes(start, end);
+
+		function->shrinkTemp();
+		delete $1;
 		delete $3;
+	}
+	;
+
+target_list
+	: target
+	| target_list ',' target
+	{
+		$$ = merge($1, $3);
+	}
+	;
+
+target
+	: TOKEN_IDENTIFIER
+	{
+		$$ = new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len), nullptr);
+	}
+	;
+
+expression_list
+	: additive_expression
+	| expression_list ',' additive_expression
+	{
+		$$ = merge($1, $3);
 	}
 	;
 	

@@ -17,6 +17,8 @@
 #define SEMANTIC_H
 
 #include <iostream>
+#include <string>
+using std::string;
 
 struct SemanticInfo {
 	enum SemanticType {
@@ -27,6 +29,7 @@ struct SemanticInfo {
 
 	SemanticType type;
 	int index;
+	string name;		// identifier
 	SemanticInfo *next;
 
 	SemanticInfo(SemanticType type, int index, SemanticInfo *next) 
@@ -34,10 +37,17 @@ struct SemanticInfo {
 		std::cout << "++ Create semantic information: " << this << std::endl;
 	}
 
+	SemanticInfo(SemanticType type, string name, SemanticInfo *next) 
+	: type(type), name(name), next(next) {
+		std::cout << "++ Create semantic information: " << this << std::endl;
+	}
+
 	~SemanticInfo() {
 		std::cout << "-- Delete semantic information: " << this << std::endl;
 		delete next;
 	}
+
+	friend SemanticInfo * merge(SemanticInfo *info1, SemanticInfo *info2); 
 };
 
 class Semantic {

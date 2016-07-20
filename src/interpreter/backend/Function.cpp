@@ -253,3 +253,12 @@ int Function::getParentLocalSymbol(string name) const
         return parent->getLocalSymbol(name);
     return -1;
 }
+
+void Function::reverseCodes(int start, int end)
+{
+    for(int i = start, j = end; i < j; ++i, --j) {
+        auto temp = codes[i];
+        codes[i] = codes[j];
+        codes[j] = temp;
+    }
+}

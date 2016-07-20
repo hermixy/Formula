@@ -81,6 +81,8 @@ public:
     std::size_t codeSize()const;
     Code *getCode(std::size_t i);
     std::size_t addCode(const Code &code, int line);
+    void reverseCodes(int start, int end);
+
     std::size_t addConstant(const Operand & c);
     const Operand & getConstant(std::size_t i) const;
 
@@ -144,6 +146,12 @@ public:
     int newTemp(int index);
     // Allocate temporary register index
     int newTemp();
+    void setTemp(int n) {
+        ntemps = n;
+    }
+    void shrinkTemp() {
+        ntemps = locals.size();
+    }
 
 private:
     // Function name
