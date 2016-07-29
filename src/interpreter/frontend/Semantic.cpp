@@ -15,16 +15,44 @@
 
 #include "Semantic.h"
 
-SemanticInfo * merge(SemanticInfo *info1, SemanticInfo *info2)
+void concat(Semantic * front1, Semantic * front2)
 {
-	SemanticInfo *rear = info1; 
-	if(!info1 || !info2) 
-		throw "Invalid semantic information merge";
-	
-	while(rear->next)
-		rear = rear->next;
+    if(!front1 || !front2)
+        throw "Invalid semantic info list connection";
 
-	rear->next = info2;
+    auto back1 = front1->prev;
+    auto back2 = front2->prev;
+    front1->prev = back2;
+    front2->prev = back1;
+    back1->next = front2;
+    back2->next = front1;
+}
 
-	return info1;
+// Delete doubly linked list
+void destroy(Semantic * front)
+{
+    auto back0 = front->prev; // old back, to be delete
+    auto back1 = back0->prev; // new back
+    while(back0 != front) {
+        // disconnect old back, set new back
+        back1->next = front;
+        front->prev = back1;
+        delete back0;
+
+        back0 = front->prev;
+        back1 = back0->prev;
+    }
+    delete back0;
+}
+
+// Count results
+int count(Semantic * front)
+{
+    int n = 1;
+    auto p = front->next;
+    while(p != front) {
+        ++n;
+        p = p->next;
+    }
+    return n;
 }

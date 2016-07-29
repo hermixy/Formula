@@ -16,6 +16,7 @@
 %{
  
 #include "Function.h"
+#include "CodeGen.h"
 #include "parser.h"
 #include "lexer.h"
 #include "Semantic.h"
@@ -56,15 +57,16 @@ typedef void* yyscan_t;
 		const char *str;
 		int len;
 	}id;	// identifier 
-	struct SemanticInfo *info;
+	struct Semantic *info;
 }
 
 /* The %destructor directive defines code that is called when a symbol is automatically discarded during error recovery. */
 %destructor { 
 	printf("%d,%d: free discarded symbols\n", @$.first_line, @$.first_column);
-	delete $$;
-}<info>
+	destroy($$);
+} <info>
  
+%token TOKEN_RETURN
 %token <real> TOKEN_REAL
 %token <integer> TOKEN_INTEGER
 %token <id> TOKEN_IDENTIFIER
@@ -76,6 +78,7 @@ typedef void* yyscan_t;
 %type <info> multiplicative_expression
 %type <info> unary_expression
 %type <info> exponential_expression
+%type <info> postfix_expression
 %type <info> primary_expression
 %type <info> constant
  
@@ -90,51 +93,115 @@ translation_unit
 	;
 
 statement_list
-	: assignment_statement 
-	| statement_list assignment_statement
+	: statement 
+	| statement_list statement
+	;
+
+statement
+	: assignment_statement
+	| return_statement
+	;
+
+return_statement
+	: TOKEN_RETURN
+	{
+		function->addCode(Code(Code::Return, 0, 0, 0), @1.last_line);
+	}
+	| TOKEN_RETURN expression_list
+	{
+		function->addCode(Code(Code::Return, $2->info->index, -1, 0), @1.last_line);
+		destroy($2);
+	}
 	;
 
 assignment_statement
 	: target_list '=' expression_list 
 	{
+		int m = count($1);
+		int n = count($3);
 		auto target = $1;
-		auto expression = $3;
-		int idst; // target index(location)
-		int isrc; // expression index(location)
-		int start = function->codeSize(); // start index of move instructions
-		int end; // end index of move instructions
-		// If there are more values than needed, the excess values are thrown away. 
-		// If there are fewer values than needed, the last value of expression list is extended with as many as needed.
-		while((target && expression) || target) {
-			string name = target->name; 
-
-			if(expression) isrc = expression->index;
-			if((idst = function->getLocalSymbol(name)) != -1) {
-				if(isrc != idst)
-					function->addCode(Code(Code::Move, isrc, 0, idst), @1.first_line);
-			} else if((idst = function->getUpvalue(name)) != -1) {
-				function->addCode(Code(Code::SetUpval, isrc, 0, idst), @1.first_line);
-			} else if((idst = function->getParentLocalSymbol(name)) != -1) {
-				idst = function->addUpvalueInfo(UpvalueInfo(name, true, idst));
-				function->addCode(Code(Code::SetUpval, isrc, 0, idst), @1.first_line);
-			} else if((idst = function->getParentLocalSymbol(name)) != -1) {
-				idst = function->addUpvalueInfo(UpvalueInfo(name, false, idst));
-				function->addCode(Code(Code::SetUpval, isrc, 0, idst), @1.first_line);
-			} else {
-				std::cout << "add " << name << std::endl;
-				idst = function->addLocalSymbolInfo(LocalSymbolInfo(name, function->localSymbolCount()));
-				if(isrc != idst)
-					function->addCode(Code(Code::Move, isrc, 0, idst), @1.first_line);
+		auto expr = $3;
+		if(m == n) {
+			// Move all values to tempraries
+			for(int i = 0; i < n-1; ++i) {
+				int temp = function->newTemp();
+				function->addCode(Code(Code::Move, expr->info->index, 0, temp), @1.first_line);
+				expr->info->index = temp;
+				expr = expr->next;
 			}
-			target = target->next;
-			if(expression) expression = expression->next;
+			// Retrieve symbols or enter symbols if not defined
+			for(int i = 0; i < m; ++i) {
+				if(!retrieveSymbol(function, target->info))
+					enterSymbol(function, target->info);
+				target = target->next;
+			}
+
+			target = target->prev; // point to the last target, expr points to the last expression
+			// Assign from back to front
+			for(int i = 0; i < m; ++i) {
+				codegenAsgnStmt(function, target->info, expr->info, @1.first_line);
+				target = target->prev;
+				expr = expr->prev;
+			}
+		} else if(m < n) {
+			// Move all values to tempraries
+			for(int i = 0; i < n; ++i) {
+				int temp = function->newTemp();
+				function->addCode(Code(Code::Move, expr->info->index, 0, temp), @1.first_line);
+				expr->info->index = temp;
+				expr = expr->next;
+			}
+			// Retrieve symbols or enter symbols if not defined
+			for(int i = 0; i < m; ++i) {
+				if(!retrieveSymbol(function, target->info))
+					enterSymbol(function, target->info);
+				target = target->next;
+			}
+
+			target = target->prev; // point to the last target
+			expr = expr->prev; // point to the last expression
+			// Shift expr to proper position
+			for(int i = n-1; i > m-1; --i)
+				expr = expr->prev;
+			// Assign from back to front
+			for(int i = 0; i < m; ++i) {
+				codegenAsgnStmt(function, target->info, expr->info, @1.first_line);
+				target = target->prev;
+				expr = expr->prev;
+			}
+		} else { // m > n
+			// Move all values to tempraries
+			for(int i = 0; i < n; ++i) {
+				int temp = function->newTemp();
+				function->addCode(Code(Code::Move, expr->info->index, 0, temp), @1.first_line);
+				expr->info->index = temp;
+				expr = expr->next;
+			}
+			// Assign the last expr to last m-n targets 
+			int temp = function->newTemp();
+			function->addCode(Code(Code::Nil, temp, m-n, 0), @1.first_line);
+			int start = temp+m-n-1;
+			//function->setTemp(function->tempCount()+m-n);
+			// Retrieve symbols or enter symbols if not defined
+			for(int i = 0; i < m; ++i) {
+				if(!retrieveSymbol(function, target->info))
+					enterSymbol(function, target->info);
+				target = target->next;
+			}
+
+			target = target->prev; // point to the last target
+			// Assign from back to front
+			for(int i = 0; i < m; ++i) {
+				if(start != target->info->index)
+					function->addCode(Code(Code::Move, start, 0, target->info->index), @1.first_line);
+				start--;
+				target = target->prev;
+			}
 		}
-		end = function->codeSize()-1;
-		function->reverseCodes(start, end);
 
 		function->shrinkTemp();
-		delete $1;
-		delete $3;
+		destroy($1);
+		destroy($3);
 	}
 	;
 
@@ -142,14 +209,15 @@ target_list
 	: target
 	| target_list ',' target
 	{
-		$$ = merge($1, $3);
+		concat($1, $3);
+		$$ = $1;
 	}
 	;
 
 target
 	: TOKEN_IDENTIFIER
 	{
-		$$ = new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len), nullptr);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len)));
 	}
 	;
 
@@ -157,7 +225,8 @@ expression_list
 	: additive_expression
 	| expression_list ',' additive_expression
 	{
-		$$ = merge($1, $3);
+		concat($1, $3);
+		$$ = $1;
 	}
 	;
 	
@@ -165,19 +234,19 @@ additive_expression
 	: multiplicative_expression
 	| additive_expression[L] '+' multiplicative_expression[R]
 	{
-		int temp = function->newTemp($L->index, $R->index);
-		function->addCode(Code(Code::Add, $L->index, $R->index, temp), @2.first_line);
-		$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		delete $L;
-		delete $R;
+		int temp = function->newTemp($L->info->index, $R->info->index);
+		function->addCode(Code(Code::Add, $L->info->index, $R->info->index, temp), @2.first_line);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, temp));
+		destroy($L);
+		destroy($R);
 	}
 	| additive_expression[L] '-' multiplicative_expression[R]
 	{
-		int temp = function->newTemp($L->index, $R->index);
-		function->addCode(Code(Code::Sub, $L->index, $R->index, temp), @2.first_line);
-		$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		delete $L;
-		delete $R;
+		int temp = function->newTemp($L->info->index, $R->info->index);
+		function->addCode(Code(Code::Sub, $L->info->index, $R->info->index, temp), @2.first_line);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, temp));
+		destroy($L);
+		destroy($R);
 	}
 	;
 
@@ -185,19 +254,19 @@ multiplicative_expression
 	: unary_expression
 	| multiplicative_expression[L] '*' unary_expression[R] 
 	{
-		int temp = function->newTemp($L->index, $R->index);
-		function->addCode(Code(Code::Mul, $L->index, $R->index, temp), @2.first_line);
-		$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		delete $L;
-		delete $R;
+		int temp = function->newTemp($L->info->index, $R->info->index);
+		function->addCode(Code(Code::Mul, $L->info->index, $R->info->index, temp), @2.first_line);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, temp));
+		destroy($L);
+		destroy($R);
 	}
 	| multiplicative_expression[L] '/' unary_expression[R]
 	{
-		int temp = function->newTemp($L->index, $R->index);
-		function->addCode(Code(Code::Div, $L->index, $R->index, temp), @2.first_line);
-		$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		delete $L;
-		delete $R;
+		int temp = function->newTemp($L->info->index, $R->info->index);
+		function->addCode(Code(Code::Div, $L->info->index, $R->info->index, temp), @2.first_line);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, temp));
+		destroy($L);
+		destroy($R);
 	}
 	;
 	
@@ -206,23 +275,48 @@ unary_expression
 	| '+' exponential_expression { $$ = $2; }
 	| '-' exponential_expression
 	{
-		int temp = function->newTemp($2->index);
-		function->addCode(Code(Code::Minus, $2->index, 0, temp), @2.first_line);
-		$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		delete $2;
+		int temp = function->newTemp($2->info->index);
+		function->addCode(Code(Code::Minus, $2->info->index, 0, temp), @2.first_line);
+		$2->info->index = temp;
+		$$ = $2;
 	}
 	;
 	
 exponential_expression
-	: primary_expression
-	| primary_expression[L] '^' exponential_expression[R] /* right associativity */
+	: postfix_expression
+	| postfix_expression[L] '^' exponential_expression[R] /* right associativity */
 	{
-		int temp = function->newTemp($L->index, $R->index);
-		function->addCode(Code(Code::Pow, $L->index, $R->index, temp), @2.first_line);
-		$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		delete $L;
-		delete $R;
+		int temp = function->newTemp($L->info->index, $R->info->index);
+		function->addCode(Code(Code::Pow, $L->info->index, $R->info->index, temp), @2.first_line);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, temp));
+		destroy($L);
+		destroy($R);
 	}
+	;
+
+postfix_expression
+	: primary_expression
+	| postfix_expression '(' ')'
+	{
+		int temp = function->newTemp();
+		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
+		int codeIndex = function->addCode(Code(Code::Call, temp, 0, -1), @1.first_line);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Call, codeIndex));
+	}
+	/*| postfix_expression '(' expression_list ')'
+	{
+		int closureIndex = function->newTemp();
+		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
+		auto expression = $3;
+		int count = 0;
+		while(expression) {
+			int temp = function->newTemp();
+			function->addCode(Code(Code::Move, expression->info->index, 0, temp), @1.first_line);
+			count++;
+			expression =  expression->next;
+		}
+		function->addCode(Code(Code::Call, closureIndex, count, 0), @1.first_line);
+	}*/
 	;
 	
 primary_expression
@@ -231,23 +325,15 @@ primary_expression
 	| TOKEN_IDENTIFIER 
 	{
 		int index;
-		string name = string($1.str, $1.len);
-		if((index = function->getLocalSymbol(name)) != -1) {
-			$$ = new SemanticInfo(SemanticInfo::Expression, index, nullptr);
-		} else if((index = function->getUpvalue(name)) != -1) {
-			int temp = function->newTemp();
-			function->addCode(Code(Code::GetUpval, index, 0, temp), @1.first_line);
-			$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		} else if((index = function->getParentLocalSymbol(name)) != -1) {
-			index = function->addUpvalueInfo(UpvalueInfo(name, true, index));
-			int temp = function->newTemp();
-			function->addCode(Code(Code::GetUpval, index, 0, temp), @1.first_line);
-			$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
-		} else if((index = function->getParentUpvalue(name)) != -1) {
-			index = function->addUpvalueInfo(UpvalueInfo(name, false, index));
-			int temp = function->newTemp();
-			function->addCode(Code(Code::GetUpval, index, 0, temp), @1.first_line);
-			$$ = new SemanticInfo(SemanticInfo::Expression, temp, nullptr);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len)));
+		if(retrieveSymbol(function, $$->info)) {
+			if($$->info->type == SemanticInfo::LocalSymbol) {
+				// do nothing
+			} else if($$->info->type == SemanticInfo::Upvalue) {
+				int temp = function->newTemp();
+				function->addCode(Code(Code::GetUpval, $$->info->index, 0, temp), @1.first_line);
+				$$->info->index = temp;
+			}
 		} else {
 			std::cout << "Undefined symbol" << std::endl;
 			YYERROR;
@@ -260,12 +346,12 @@ constant
 	{
 		// Index(negative) of constant in function's constants list
 		auto index = function->addConstant(Operand($1));
-		$$ = new SemanticInfo(SemanticInfo::Constant, -index, nullptr);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Constant, -index));
 	}
 	| TOKEN_REAL
 	{
 		auto index = function->addConstant(Operand($1));
-		$$ = new SemanticInfo(SemanticInfo::Constant, -index, nullptr);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Constant, -index));
 	}
 	;
 	

@@ -1,3 +1,4 @@
+
 // Copyright (C) 2015-2016, kylinsage <kylinsage@gmail.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -25,33 +26,54 @@ struct SemanticInfo {
 		Constant,
 		Identifier,
 		Expression,
-	};
+		Call,
+        LocalSymbol,
+        Upvalue,
+    };
 
 	SemanticType type;
 	int index;
 	string name;		// identifier
-	SemanticInfo *next;
 
-	SemanticInfo(SemanticType type, int index, SemanticInfo *next) 
-	: type(type), index(index), next(next) {
+    SemanticInfo(SemanticType type, int index)
+    : type(type), index(index) {
 		std::cout << "++ Create semantic information: " << this << std::endl;
 	}
 
-	SemanticInfo(SemanticType type, string name, SemanticInfo *next) 
-	: type(type), name(name), next(next) {
+    SemanticInfo(SemanticType type, string name)
+    : type(type), name(name) {
 		std::cout << "++ Create semantic information: " << this << std::endl;
 	}
 
 	~SemanticInfo() {
 		std::cout << "-- Delete semantic information: " << this << std::endl;
-		delete next;
 	}
-
-	friend SemanticInfo * merge(SemanticInfo *info1, SemanticInfo *info2); 
 };
 
-class Semantic {
+// Doubly linked list node
+struct Semantic {
+    SemanticInfo *info;
+    Semantic *prev;
+    Semantic *next;
 
+    Semantic(SemanticInfo *info): info(info) {
+        prev = this;
+        next = this;
+    }
+    ~Semantic() {
+        delete info;
+    }
+    Semantic(const Semantic &) = delete;
+    Semantic & operator = (const Semantic &) = delete;
+
+    // Connect two doubly linked list, front1 is the header of the new list
+    friend void concat(Semantic * front1, Semantic * front2);
+    // Delete doubly linked list
+    friend void destroy(Semantic * front);
+    // Count results
+    friend int count(Semantic * front);
 };
+
+
 
 #endif /* SEMANTIC_H */

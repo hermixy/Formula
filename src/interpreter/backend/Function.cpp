@@ -54,6 +54,9 @@ void Function::adjustSlotCount(const Code &code)
     case Code::GetUpval:
         nslots = code.result + 1 > nslots ? code.result + 1 : nslots;
         break;
+    case Code::Nil:
+        nslots = code.arg1 + code.arg2 - 1 > nslots ? code.arg1 + code.arg2 - 1 : nslots;
+        break;
     default: break;
     }
 }
@@ -89,7 +92,7 @@ const Operand & Function::getConstant(std::size_t i) const
 std::size_t Function::addLocalSymbolInfo(const LocalSymbolInfo &localInfo) 
 {
     locals.push_back(localInfo);
-    ntemps++;
+    nslots++;
     return locals.size() - 1;
 }
 

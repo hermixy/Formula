@@ -108,6 +108,11 @@ void VM::run()
                     callReturn(arg1, arg2);
                     finish = true;
                     break;
+                case Code::Nil:
+                    for(int i = arg1; i < arg2; ++i)
+                        R(i).setNil();
+                    calls.back().adjustTopIndex(arg1 + arg2 - 1);
+                    break;
                 default:
                     throw "Invalid opcode";
                     break;

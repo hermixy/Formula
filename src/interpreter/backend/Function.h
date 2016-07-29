@@ -149,6 +149,10 @@ public:
     void setTemp(int n) {
         ntemps = n;
     }
+
+    int tempCount() const {
+        return ntemps;
+    }
     void shrinkTemp() {
         ntemps = locals.size();
     }

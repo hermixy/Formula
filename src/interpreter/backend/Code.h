@@ -49,6 +49,7 @@ static const string opdesc[] = {
     "CALL",
     "RETURN",
 
+    "NIL",
 };
 
 struct Code {
@@ -81,6 +82,8 @@ struct Code {
 
         Call,		/* A B C -- R(A), ... ,R(A+C-1) = R(A)(R(A+1), ... ,R(A+B)) */
         Return,		/* A B - -- return R(A), ... ,R(A+B-1) */
+
+        Nil,        /* A B - -- R(A), ..., R(A+B-1) = Nil */
     };
 
     // three-address code

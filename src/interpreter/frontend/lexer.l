@@ -64,6 +64,8 @@ WS          [ \r\n\t]*
 	return TOKEN_IDENTIFIER; 
 }
 
+"return"	{ return TOKEN_RETURN;	}
+
 {WS}	{ /* skip  */ }
 "("		{ return '('; }
 ")"		{ return ')'; }
@@ -73,6 +75,7 @@ WS          [ \r\n\t]*
 "/"		{ return '/'; }
 "^"		{ return '^'; }
 "="		{ return '='; }
+","		{ return ','; }
 .		{ /*error*/
 	return *yytext;
 }

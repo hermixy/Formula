@@ -67,6 +67,7 @@ add_executable(formula
 	${BISON_Parser_OUTPUTS}
 	${FLEX_Lexer_OUTPUTS}
 	frontend/Semantic.cpp
+	frontend/CodeGen.cpp
 	backend/Operand.cpp
 	backend/Function.cpp
 	backend/Code.cpp
