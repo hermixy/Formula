@@ -1,0 +1,5 @@
+-- Define a function
+a = function () return 1, 2 end
+
+-- Call the function
+b,c = a()

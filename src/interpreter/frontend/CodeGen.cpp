@@ -50,13 +50,13 @@ bool enterSymbol(Function *function, SemanticInfo *info)
     return true;
 }
 
-void codegenAsgnStmt(Function *function, SemanticInfo *target, SemanticInfo *expression, int lineno)
+void codegenAsgnStmt(Function *function, SemanticInfo *target, int index, int lineno)
 {
     if(target->type == SemanticInfo::Upvalue) {
-        function->addCode(Code(Code::SetUpval, expression->index, 0, target->index), lineno);
+        function->addCode(Code(Code::SetUpval, index, 0, target->index), lineno);
     } else if(target->type == SemanticInfo::LocalSymbol) {
-        if(target->index != expression->index)
-            function->addCode(Code(Code::Move, expression->index, 0, target->index), lineno);
+        if(target->index != index)
+            function->addCode(Code(Code::Move, index, 0, target->index), lineno);
     } else {
         throw "Invalid assignment statement";
     }

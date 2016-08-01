@@ -24,6 +24,6 @@ bool retrieveSymbol(Function *function, SemanticInfo *info);
 // Enter new symbol which is not defined
 bool enterSymbol(Function *function, SemanticInfo *info);
 
-void codegenAsgnStmt(Function *function, SemanticInfo *target, SemanticInfo *expression, int lineno);
+void codegenAsgnStmt(Function *function, SemanticInfo *target, int index, int lineno);
 
 #endif /* CODEGEN_H */

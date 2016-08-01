@@ -31,6 +31,7 @@ void concat(Semantic * front1, Semantic * front2)
 // Delete doubly linked list
 void destroy(Semantic * front)
 {
+    if(!front) return;
     auto back0 = front->prev; // old back, to be delete
     auto back1 = back0->prev; // new back
     while(back0 != front) {

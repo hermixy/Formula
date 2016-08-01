@@ -41,7 +41,7 @@ int column;
  
 digits      [0-9]+
 exponent 	([E|e][+|-]?[0-9]+)
-WS          [ \r\n\t]*
+WS          [ \t]*
  
 %%
 
@@ -67,6 +67,9 @@ WS          [ \r\n\t]*
 	yylval->id.len = yyleng;
 	return TOKEN_IDENTIFIER; 
 }
+
+\n	{ row++; column = 1; }
+--.*\n	{ /* comments */ row++; column = 1; }
 
 {WS}	{ /* skip  */ }
 "("		{ return '('; }

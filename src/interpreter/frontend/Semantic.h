@@ -21,6 +21,16 @@
 #include <string>
 using std::string;
 
+static const char *desc[] = {
+    "Constant",
+    "Identifier",
+    "Expression",
+    "FunctionCall",
+    "FunctionDefinition",
+    "LocalSymbol",
+    "Upvalue",
+};
+
 struct SemanticInfo {
     enum SemanticType {
         Constant,
@@ -39,17 +49,17 @@ struct SemanticInfo {
 
     SemanticInfo(SemanticType type, int index)
         : type(type), index(index) {
-        std::cout << "++ Create semantic information: " << this << std::endl;
+        std::cout << "++ Create semantic information: " << this << " (" << desc[type] << ")" << std::endl;
     }
 
     SemanticInfo(SemanticType type, int index, int codeIndex)
         : type(type), index(index), codeIndex(codeIndex) {
-        std::cout << "++ Create semantic information: " << this << std::endl;
+        std::cout << "++ Create semantic information: " << this << " (" << desc[type] << ")" << std::endl;
     }
 
     SemanticInfo(SemanticType type, string name)
         : type(type), name(name) {
-        std::cout << "++ Create semantic information: " << this << std::endl;
+        std::cout << "++ Create semantic information: " << this << " (" << desc[type] << ")" << std::endl;
     }
 
     ~SemanticInfo() {

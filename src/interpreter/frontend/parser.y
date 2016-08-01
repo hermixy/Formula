@@ -142,7 +142,7 @@ assignment_statement
 			$3->prev->info->index = temp;
 		}
 		
-		// When the last $3ession is function call, then backpatch it
+		// When the last expression is function call, then backpatch it
 		if($3->prev->info->type == SemanticInfo::FunctionCall) {
 			int nresults; // results count expected
 			if(m == n) nresults = 1;
@@ -167,8 +167,7 @@ assignment_statement
 		target = $1->prev;
 		int index = $3->info->index+m-1;
 		for(int i = 0; i < m; ++i) {
-			if(index != target->info->index)
-				function->addCode(Code(Code::Move, index, 0, target->info->index), @1.first_line);
+			codegenAsgnStmt(function, target->info, index, @1.first_line);
 			index--;
 			target = target->prev;
 		}
@@ -192,21 +191,28 @@ target
 	: TOKEN_IDENTIFIER
 	{
 		$$ = new Semantic(new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len)));
-		std::cout << "target:" << $$ << std::endl;
 	}
 	;
 
 expression_list
 	: expression
-	| expression_list ',' expression 
+	| expression_list ',' 
 	{
+		// Move the last expression value of $1 to temperaries
 		// If the last expression of $1 is FunctionCall, set its expected results count to 1
-		if($1->prev->info->type == SemanticInfo::FunctionCall)
-			function->backpatch($1->prev->info->index, 1);
-		int temp = function->newTemp();
-		function->addCode(Code(Code::Move, $1->prev->info->index, 0, temp), @1.first_line);
-		$1->prev->info->index = temp;
-		concat($1, $3);
+		// Note that function call is temperary value. Constants and locals will be moved to tempraries.
+		if($1->prev->info->type == SemanticInfo::FunctionCall) {
+			function->backpatch($1->prev->info->codeIndex, 1);
+			function->setTemp($1->prev->info->index+1);
+		} else if($1->prev->info->index < function->localSymbolCount()) {
+			int temp = function->newTemp();
+			function->addCode(Code(Code::Move, $1->prev->info->index, 0, temp), @1.first_line);
+			$1->prev->info->index = temp;
+		}
+	}
+	expression 
+	{
+		concat($1, $4);
 		$$ = $1;
 	}
 	;
@@ -232,6 +238,7 @@ function_definition
 				param = param->next;
 			}
 		}
+		destroy($3);
 	}
 	statement_list TOKEN_END
 	{
@@ -267,7 +274,6 @@ additive_expression
 	| additive_expression[L] '+' multiplicative_expression[R]
 	{
 		int temp = function->newTemp($L->info->index, $R->info->index);
-		std::cout << "temp: " << temp << std::endl;
 		function->addCode(Code(Code::Add, $L->info->index, $R->info->index, temp), @2.first_line);
 		$$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, temp));
 		destroy($L);
@@ -329,16 +335,8 @@ exponential_expression
 
 postfix_expression
 	: primary_expression
-	/*| postfix_expression '(' ')'
-	{
-		int temp = function->newTemp();
-		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
-		int codeIndex = function->addCode(Code(Code::Call, temp, 0, -1), @1.first_line);
-		$$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionCall, temp, codeIndex));
-	}*/
 	| postfix_expression 
 	{
-		std::cout << "function: " << $1->info->index << std::endl;
 		int temp = function->newTemp();
 		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
 		$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionCall, temp, -1)); // to be filled later
@@ -347,17 +345,18 @@ postfix_expression
 	{
 		int closureIndex = $<info>2->info->index;
 		int codeIndex;
-		// The 4th part of CALL instruction will backpatched when assignment
+		// The 4th part of CALL instruction will be backpatched when assignment
 		// Case 1: no arguments
 		if(!$4) {
 			codeIndex = function->addCode(Code(Code::Call, closureIndex, 0, -1), @1.first_line);
 		// Case 2: the last argument is function call, the arguments count cann't be determinated
-		} else if($1->prev->info->type == SemanticInfo::FunctionCall) {
+		} else if($4->prev->info->type == SemanticInfo::FunctionCall) {
 			codeIndex = function->addCode(Code(Code::Call, closureIndex, -1, -1), @1.first_line);
 		// Case 3: the others
 		} else {
 			codeIndex = function->addCode(Code(Code::Call, closureIndex, count($4), -1), @1.first_line);
 		}
+		destroy($4);
 		$<info>2->info->codeIndex = codeIndex;
 		$$ = $<info>2;
 	}

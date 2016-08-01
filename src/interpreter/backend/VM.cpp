@@ -178,6 +178,7 @@ void VM::callReturn(int start, int n)
     }
     calls.pop_back();
     // Set nils
+    if(calls.empty()) return;
     int topIndex = calls.back().topIndex;
     for(int i = closureIndex+n; i < topIndex; i++)
         registers[i].setNil();
