@@ -22,32 +22,39 @@
 using std::string;
 
 struct SemanticInfo {
-	enum SemanticType {
-		Constant,
-		Identifier,
-		Expression,
-		Call,
+    enum SemanticType {
+        Constant,
+        Identifier,
+        Expression,
+        FunctionCall,
+        FunctionDefinition,
         LocalSymbol,
         Upvalue,
     };
 
-	SemanticType type;
-	int index;
-	string name;		// identifier
+    SemanticType type;
+    int index;
+    int codeIndex;
+    string name;		// identifier
 
     SemanticInfo(SemanticType type, int index)
-    : type(type), index(index) {
-		std::cout << "++ Create semantic information: " << this << std::endl;
-	}
+        : type(type), index(index) {
+        std::cout << "++ Create semantic information: " << this << std::endl;
+    }
+
+    SemanticInfo(SemanticType type, int index, int codeIndex)
+        : type(type), index(index), codeIndex(codeIndex) {
+        std::cout << "++ Create semantic information: " << this << std::endl;
+    }
 
     SemanticInfo(SemanticType type, string name)
-    : type(type), name(name) {
-		std::cout << "++ Create semantic information: " << this << std::endl;
-	}
+        : type(type), name(name) {
+        std::cout << "++ Create semantic information: " << this << std::endl;
+    }
 
-	~SemanticInfo() {
-		std::cout << "-- Delete semantic information: " << this << std::endl;
-	}
+    ~SemanticInfo() {
+        std::cout << "-- Delete semantic information: " << this << std::endl;
+    }
 };
 
 // Doubly linked list node

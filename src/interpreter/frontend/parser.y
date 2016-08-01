@@ -67,6 +67,8 @@ typedef void* yyscan_t;
 } <info>
  
 %token TOKEN_RETURN
+%token TOKEN_FUNCTION
+%token TOKEN_END
 %token <real> TOKEN_REAL
 %token <integer> TOKEN_INTEGER
 %token <id> TOKEN_IDENTIFIER
@@ -74,6 +76,12 @@ typedef void* yyscan_t;
 %type <info> target_list 
 %type <info> target
 %type <info> expression_list 
+%type <info> optional_parameter_list 
+%type <info> parameter_list 
+%type <info> parameter 
+%type <info> optional_argument_list 
+%type <info> expression
+%type <info> function_definition 
 %type <info> additive_expression
 %type <info> multiplicative_expression
 %type <info> unary_expression
@@ -103,13 +111,21 @@ statement
 	;
 
 return_statement
-	: TOKEN_RETURN
+	: TOKEN_RETURN expression_list
 	{
-		function->addCode(Code(Code::Return, 0, 0, 0), @1.last_line);
-	}
-	| TOKEN_RETURN expression_list
-	{
-		function->addCode(Code(Code::Return, $2->info->index, -1, 0), @1.last_line);
+		int n = count($2);
+		// Move the last value to tempraries. Note that the first n-1 $3ession values and function call result(s) are  already temparies.
+		if(n > 1 && $2->prev->info->type != SemanticInfo::FunctionCall) {
+			int temp = function->newTemp();
+			function->addCode(Code(Code::Move, $2->prev->info->index, 0, temp), @1.first_line);
+			$2->prev->info->index = temp;
+		}
+
+		if($2->prev->info->type == SemanticInfo::FunctionCall) {
+			function->addCode(Code(Code::Return, $2->info->index, -1, 0), @1.last_line);
+		} else {
+			function->addCode(Code(Code::Return, $2->info->index, n, 0), @1.last_line);
+		}
 		destroy($2);
 	}
 	;
@@ -119,84 +135,42 @@ assignment_statement
 	{
 		int m = count($1);
 		int n = count($3);
-		auto target = $1;
-		auto expr = $3;
-		if(m == n) {
-			// Move all values to tempraries
-			for(int i = 0; i < n-1; ++i) {
-				int temp = function->newTemp();
-				function->addCode(Code(Code::Move, expr->info->index, 0, temp), @1.first_line);
-				expr->info->index = temp;
-				expr = expr->next;
-			}
-			// Retrieve symbols or enter symbols if not defined
-			for(int i = 0; i < m; ++i) {
-				if(!retrieveSymbol(function, target->info))
-					enterSymbol(function, target->info);
-				target = target->next;
-			}
-
-			target = target->prev; // point to the last target, expr points to the last expression
-			// Assign from back to front
-			for(int i = 0; i < m; ++i) {
-				codegenAsgnStmt(function, target->info, expr->info, @1.first_line);
-				target = target->prev;
-				expr = expr->prev;
-			}
-		} else if(m < n) {
-			// Move all values to tempraries
-			for(int i = 0; i < n; ++i) {
-				int temp = function->newTemp();
-				function->addCode(Code(Code::Move, expr->info->index, 0, temp), @1.first_line);
-				expr->info->index = temp;
-				expr = expr->next;
-			}
-			// Retrieve symbols or enter symbols if not defined
-			for(int i = 0; i < m; ++i) {
-				if(!retrieveSymbol(function, target->info))
-					enterSymbol(function, target->info);
-				target = target->next;
-			}
-
-			target = target->prev; // point to the last target
-			expr = expr->prev; // point to the last expression
-			// Shift expr to proper position
-			for(int i = n-1; i > m-1; --i)
-				expr = expr->prev;
-			// Assign from back to front
-			for(int i = 0; i < m; ++i) {
-				codegenAsgnStmt(function, target->info, expr->info, @1.first_line);
-				target = target->prev;
-				expr = expr->prev;
-			}
-		} else { // m > n
-			// Move all values to tempraries
-			for(int i = 0; i < n; ++i) {
-				int temp = function->newTemp();
-				function->addCode(Code(Code::Move, expr->info->index, 0, temp), @1.first_line);
-				expr->info->index = temp;
-				expr = expr->next;
-			}
-			// Assign the last expr to last m-n targets 
+		// Move the last value to tempraries. Note that the first n-1 $3ession values and function call result(s) are  already temparies.
+		if(n > 1 && $3->prev->info->type != SemanticInfo::FunctionCall) {
+			int temp = function->newTemp();
+			function->addCode(Code(Code::Move, $3->prev->info->index, 0, temp), @1.first_line);
+			$3->prev->info->index = temp;
+		}
+		
+		// When the last $3ession is function call, then backpatch it
+		if($3->prev->info->type == SemanticInfo::FunctionCall) {
+			int nresults; // results count expected
+			if(m == n) nresults = 1;
+			else if(m > n) nresults = m-n+1;
+			else nresults = 0;
+			function->backpatch($3->prev->info->codeIndex, nresults);
+		} else if(m > n) {
+		// Extend $3ession values with nils
 			int temp = function->newTemp();
 			function->addCode(Code(Code::Nil, temp, m-n, 0), @1.first_line);
-			int start = temp+m-n-1;
-			//function->setTemp(function->tempCount()+m-n);
-			// Retrieve symbols or enter symbols if not defined
-			for(int i = 0; i < m; ++i) {
-				if(!retrieveSymbol(function, target->info))
-					enterSymbol(function, target->info);
-				target = target->next;
-			}
+		}
+		
+		// Retrieve symbols or enter symbols if not defined
+		auto target = $1;
+		for(int i = 0; i < m; ++i) {
+			if(!retrieveSymbol(function, target->info))
+				enterSymbol(function, target->info);
+			target = target->next;
+		}
 
-			target = target->prev; // point to the last target
-			// Assign from back to front
-			for(int i = 0; i < m; ++i) {
-				if(start != target->info->index)
-					function->addCode(Code(Code::Move, start, 0, target->info->index), @1.first_line);
-				start--;
-				target = target->prev;
-			}
+		// Assign from back to front
+		target = $1->prev;
+		int index = $3->info->index+m-1;
+		for(int i = 0; i < m; ++i) {
+			if(index != target->info->index)
+				function->addCode(Code(Code::Move, index, 0, target->info->index), @1.first_line);
+			index--;
+			target = target->prev;
 		}
 
 		function->shrinkTemp();
@@ -218,15 +192,73 @@ target
 	: TOKEN_IDENTIFIER
 	{
 		$$ = new Semantic(new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len)));
+		std::cout << "target:" << $$ << std::endl;
 	}
 	;
 
 expression_list
+	: expression
+	| expression_list ',' expression 
+	{
+		// If the last expression of $1 is FunctionCall, set its expected results count to 1
+		if($1->prev->info->type == SemanticInfo::FunctionCall)
+			function->backpatch($1->prev->info->index, 1);
+		int temp = function->newTemp();
+		function->addCode(Code(Code::Move, $1->prev->info->index, 0, temp), @1.first_line);
+		$1->prev->info->index = temp;
+		concat($1, $3);
+		$$ = $1;
+	}
+	;
+
+expression
 	: additive_expression
-	| expression_list ',' additive_expression
+	| function_definition
+	;
+
+function_definition
+	: TOKEN_FUNCTION '(' optional_parameter_list ')'
+	{
+		int funcindex = function->createChild("anonymous");
+		int temp = function->newTemp();
+		function->addCode(Code(Code::Closure, funcindex, 0, temp), @1.first_line);
+		function = function->getChild(funcindex);
+		$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionDefinition, temp));
+		if($3) { // Define all the parameters
+			int m = count($3);
+			auto param = $3;
+			for(int i = 0; i < m; ++i) {
+				function->addParam(LocalSymbolInfo(param->info->name, i));
+				param = param->next;
+			}
+		}
+	}
+	statement_list TOKEN_END
+	{
+		function->addCode(Code(Code::Return, 0, 0, 0), @1.last_line);
+		function = function->getParent();
+		$$ = $<info>5;
+	}
+	;
+
+optional_parameter_list
+	:/* empty */ { $$ = nullptr; }
+	| parameter_list
+	;
+
+parameter_list
+	: parameter
+	| parameter_list ',' parameter
 	{
 		concat($1, $3);
 		$$ = $1;
+	}
+	;
+
+parameter
+	: TOKEN_IDENTIFIER
+	{
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len)));
 	}
 	;
 	
@@ -235,6 +267,7 @@ additive_expression
 	| additive_expression[L] '+' multiplicative_expression[R]
 	{
 		int temp = function->newTemp($L->info->index, $R->info->index);
+		std::cout << "temp: " << temp << std::endl;
 		function->addCode(Code(Code::Add, $L->info->index, $R->info->index, temp), @2.first_line);
 		$$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, temp));
 		destroy($L);
@@ -296,27 +329,52 @@ exponential_expression
 
 postfix_expression
 	: primary_expression
-	| postfix_expression '(' ')'
+	/*| postfix_expression '(' ')'
 	{
 		int temp = function->newTemp();
 		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
 		int codeIndex = function->addCode(Code(Code::Call, temp, 0, -1), @1.first_line);
-		$$ = new Semantic(new SemanticInfo(SemanticInfo::Call, codeIndex));
-	}
-	/*| postfix_expression '(' expression_list ')'
-	{
-		int closureIndex = function->newTemp();
-		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
-		auto expression = $3;
-		int count = 0;
-		while(expression) {
-			int temp = function->newTemp();
-			function->addCode(Code(Code::Move, expression->info->index, 0, temp), @1.first_line);
-			count++;
-			expression =  expression->next;
-		}
-		function->addCode(Code(Code::Call, closureIndex, count, 0), @1.first_line);
+		$$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionCall, temp, codeIndex));
 	}*/
+	| postfix_expression 
+	{
+		std::cout << "function: " << $1->info->index << std::endl;
+		int temp = function->newTemp();
+		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
+		$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionCall, temp, -1)); // to be filled later
+	}
+	'(' optional_argument_list ')'
+	{
+		int closureIndex = $<info>2->info->index;
+		int codeIndex;
+		// The 4th part of CALL instruction will backpatched when assignment
+		// Case 1: no arguments
+		if(!$4) {
+			codeIndex = function->addCode(Code(Code::Call, closureIndex, 0, -1), @1.first_line);
+		// Case 2: the last argument is function call, the arguments count cann't be determinated
+		} else if($1->prev->info->type == SemanticInfo::FunctionCall) {
+			codeIndex = function->addCode(Code(Code::Call, closureIndex, -1, -1), @1.first_line);
+		// Case 3: the others
+		} else {
+			codeIndex = function->addCode(Code(Code::Call, closureIndex, count($4), -1), @1.first_line);
+		}
+		$<info>2->info->codeIndex = codeIndex;
+		$$ = $<info>2;
+	}
+	;
+
+optional_argument_list
+	: /* empty */ { $$ = nullptr; }
+	| expression_list
+	{
+		// Move all expressions to tempraries
+		if($1->prev->info->type != SemanticInfo::FunctionCall && $1->prev->info->index < function->localSymbolCount()) {
+			int temp = function->newTemp();
+			function->addCode(Code(Code::Move, $1->prev->info->index, 0, temp), @1.first_line);
+			$1->prev->info->index = temp;
+		}
+		$$ = $1;
+	}
 	;
 	
 primary_expression
@@ -335,7 +393,7 @@ primary_expression
 				$$->info->index = temp;
 			}
 		} else {
-			std::cout << "Undefined symbol" << std::endl;
+			std::cout << "Undefined symbol:" << string($1.str, $1.len) << std::endl;
 			YYERROR;
 		}
 	}

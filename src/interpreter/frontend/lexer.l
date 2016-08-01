@@ -58,13 +58,15 @@ WS          [ \r\n\t]*
 	return TOKEN_INTEGER; 
 }
 
+"function"	{ return TOKEN_FUNCTION;	}
+"end"		{ return TOKEN_END;	}
+"return"	{ return TOKEN_RETURN;	}
+
 [_a-zA-Z][_a-zA-Z0-9]*			{ 
 	yylval->id.str = yytext;
 	yylval->id.len = yyleng;
 	return TOKEN_IDENTIFIER; 
 }
-
-"return"	{ return TOKEN_RETURN;	}
 
 {WS}	{ /* skip  */ }
 "("		{ return '('; }

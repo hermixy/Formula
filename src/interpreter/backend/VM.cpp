@@ -102,7 +102,6 @@ void VM::run()
                     break;
                 case Code::Call:
                     callClosure(arg1, arg2, result);
-                    calls.back().adjustTopIndex(arg1 + result);
                     break;
                 case Code::Return:
                     callReturn(arg1, arg2);
@@ -131,16 +130,17 @@ void VM::run()
 void VM::callClosure(int i, int nparams, int nresults)
 {
     if(R(i).type != Operand::ClosureType)
-        throw "Call a non-closure type!";
+        throw "Call a non-closure type";
 
     auto function = R(i).closure->getPrototype();
     auto code = function->getBaseCode();
     registers.resize(calls.back().topIndex + function->slotCount());
-    std::cout << "capacity:" << registers.capacity() << std::endl;
+    //std::cout << "capacity:" << registers.capacity() << std::endl;
 
     int closureIndex = calls.back().baseIndex + i;
     int baseIndex = closureIndex + 1;
     int topIndex = calls.back().topIndex;
+    calls.back().adjustTopIndex(i + nresults - 1);
     calls.push_back(CallInfo(closureIndex, baseIndex, topIndex, code));
 }
 
@@ -172,10 +172,15 @@ const Closure *VM::getClosure(std::size_t i) const
 // wherein, A -- start, B -- n
 void VM::callReturn(int start, int n)
 {
+    int closureIndex = calls.back().closureIndex;
     for(int i = 0; i < n; ++i) {
-        registers[calls.back().closureIndex+i] = R(start+i);
+        registers[closureIndex+i] = R(start+i);
     }
     calls.pop_back();
+    // Set nils
+    int topIndex = calls.back().topIndex;
+    for(int i = closureIndex+n; i < topIndex; i++)
+        registers[i].setNil();
 }
 
 void VM::showRuntimeStack() const
@@ -188,9 +193,9 @@ void VM::showRuntimeStack() const
     for (auto a: registers) {
         if( i >= calls.back().topIndex)
             break;
-        if(i == calls.back().baseIndex)
+        else if(i == calls.back().baseIndex)
             std::cout << "base->";
-        if(i == calls.back().closureIndex)
+        else if(i == calls.back().closureIndex)
             std::cout << "func->";
         std::cout << "\t" << a << std::endl;
         i++;

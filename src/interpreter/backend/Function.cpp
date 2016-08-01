@@ -92,7 +92,7 @@ const Operand & Function::getConstant(std::size_t i) const
 std::size_t Function::addLocalSymbolInfo(const LocalSymbolInfo &localInfo) 
 {
     locals.push_back(localInfo);
-    nslots++;
+    ntemps++;
     return locals.size() - 1;
 }
 
@@ -100,6 +100,7 @@ std::size_t Function::addParam(const LocalSymbolInfo &paramInfo)
 {
     locals.push_back(paramInfo);
     nparams++;
+    ntemps++;
     return locals.size() - 1;
 }
 
@@ -109,11 +110,12 @@ std::size_t Function::addUpvalueInfo(const UpvalueInfo &upvalueInfo)
     return upvalueInfos.size() - 1;
 }
 
-Function *Function::createChild(string name)
+std::size_t Function::createChild(string name)
 {
     auto child = new Function(name);
+    child->parent = this;
     children.push_back(child);
-    return child;
+    return children.size() - 1;
 }
 
 Function *Function::getChild(std::size_t i)

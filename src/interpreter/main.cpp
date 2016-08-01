@@ -18,6 +18,7 @@
 #include "parser.h"
 #include "lexer.h"
 #include "VM.h"
+#include <stdio.h>
 
 using std::string;
 
@@ -47,6 +48,32 @@ bool parse(Function *function, const char *expr)
     return true;
 }
 
+bool parse(Function *function, FILE *fp)
+{
+    yyscan_t scanner;
+    YY_BUFFER_STATE state;
+
+    if (yylex_init(&scanner)) {
+        // couldn't initialize
+        return false;
+    }
+
+    if(!fp) fp = stdin;
+    state = yy_create_buffer(fp, YY_BUF_SIZE, scanner);
+    yy_switch_to_buffer(state, scanner);
+
+    if (yyparse(function, scanner)) {
+        // error parsing
+        return false;
+    }
+
+    yy_delete_buffer(state, scanner);
+
+    yylex_destroy(scanner);
+
+    return true;
+}
+
 void showMessage() 
 {
     std::cout << "Formula 2.0.0\nCalculating arithmetic expressions.\n";
@@ -55,14 +82,20 @@ void showMessage()
 int main(void)
 {
     Function function("main");
-    string expression;
+    string input;
     showMessage();
     std::cout << ">>";
-    while(getline(std::cin, expression)){
+    while(getline(std::cin, input)){
         function.clearCodes();
-        if(parse(&function, expression.c_str())) {
+        FILE *fp = fopen(input.c_str(), "r");
+        if(fp && parse(&function, fp)) {
             std::cout << function << std::endl;
-			VM vm(&function);
+            VM vm(&function);
+            vm.run();
+            fclose(fp);
+        } else if(parse(&function, input.c_str())) {
+            std::cout << function << std::endl;
+            VM vm(&function);
             vm.run();
         }
         std::cout << ">>";

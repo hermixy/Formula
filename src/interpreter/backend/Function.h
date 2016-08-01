@@ -126,8 +126,11 @@ public:
     int getParentUpvalue(string name) const;
     int getParentLocalSymbol(string name) const;
 
-    Function * createChild(string name);
+    std::size_t createChild(string name);
     Function * getChild(std::size_t index);
+    Function * getParent() {
+        return parent;
+    }
 
     friend ostream & operator <<(ostream & os, const Function & f);
 
