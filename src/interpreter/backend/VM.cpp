@@ -31,12 +31,16 @@ VM::VM(Function *mfunction): mfunction(mfunction)
 void VM::run()
 {
     try {
+        std::cout << "----------BEGIN OF PROGRAM----------\n";
+        showRuntimeStack();
         while (!calls.empty()) {
+            std::cout << "\n-----JUMP/RETURN TO SUBROUTINE-----\n";
+            showRuntimeStack();
             bool finish = false;
             while (!finish) {
                 auto function = getCurrentClosure()->getPrototype();
                 auto baseCode = function->getBaseCode();
-                showRuntimeStack();
+
                 Code::OpCode op = calls.back().pc->op;
                 int arg1 = calls.back().pc->arg1;
                 int arg2 = calls.back().pc->arg2;
@@ -44,7 +48,7 @@ void VM::run()
 
                 calls.back().pc++;
 
-                std::cout << "OP:" << opdesc[op]
+                std::cout << "\nOP:" << opdesc[op]
                              << "\targ1:" << arg1
                              << "\targ2:" << arg2
                              << "\tresult:" << result << std::endl;
@@ -116,7 +120,8 @@ void VM::run()
                     throw "Invalid opcode";
                     break;
                 } // switch
-                //showRuntimeStack();
+                if(!calls.empty())
+                    showRuntimeStack();
             } // while
         } // while
     }
@@ -194,7 +199,8 @@ void VM::showRuntimeStack() const
     for (auto a: registers) {
         if( i >= calls.back().topIndex)
             break;
-        else if(i == calls.back().baseIndex)
+
+        if(i == calls.back().baseIndex)
             std::cout << "base->";
         else if(i == calls.back().closureIndex)
             std::cout << "func->";

@@ -1,0 +1,5 @@
+-- Define a function
+foo = function (a, b, c) return a, b, c end
+
+-- Call the function
+a, b, c = foo(5, 8)

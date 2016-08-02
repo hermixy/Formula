@@ -115,7 +115,7 @@ return_statement
 	{
 		int n = count($2);
 		// Move the last value to tempraries. Note that the first n-1 $3ession values and function call result(s) are  already temparies.
-		if(n > 1 && $2->prev->info->type != SemanticInfo::FunctionCall) {
+		if($2->prev->info->index >= function->localSymbolCount() || $2->prev->info->index < 0) {
 			int temp = function->newTemp();
 			function->addCode(Code(Code::Move, $2->prev->info->index, 0, temp), @1.first_line);
 			$2->prev->info->index = temp;
@@ -337,8 +337,19 @@ postfix_expression
 	: primary_expression
 	| postfix_expression 
 	{
-		int temp = function->newTemp();
-		function->addCode(Code(Code::Move, $1->info->index, 0, temp), @1.first_line);
+		// Move the last expression value of $1 to temperaries
+		// If the last expression of $1 is FunctionCall, set its expected results count to 1
+		// Note that function call is temperary value. Constants and locals will be moved to tempraries.
+		int temp;
+		if($1->prev->info->type == SemanticInfo::FunctionCall) {
+			function->backpatch($1->prev->info->codeIndex, 1);
+			function->setTemp($1->prev->info->index+1);
+			temp = $1->prev->info->index;
+		} else if($1->prev->info->index < function->localSymbolCount()) {
+			temp = function->newTemp();
+			function->addCode(Code(Code::Move, $1->prev->info->index, 0, temp), @1.first_line);
+			$1->prev->info->index = temp;
+		}
 		$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionCall, temp, -1)); // to be filled later
 	}
 	'(' optional_argument_list ')'
@@ -356,6 +367,7 @@ postfix_expression
 		} else {
 			codeIndex = function->addCode(Code(Code::Call, closureIndex, count($4), -1), @1.first_line);
 		}
+		destroy($1);
 		destroy($4);
 		$<info>2->info->codeIndex = codeIndex;
 		$$ = $<info>2;
