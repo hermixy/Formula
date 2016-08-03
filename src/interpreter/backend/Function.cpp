@@ -28,6 +28,7 @@ std::size_t Function::codeSize() const
 
 void Function::adjustSlotCount(const Code &code) 
 {
+    int n;
     switch(code.op) {
     case Code::Jnz:
     case Code::Jmp:
@@ -38,11 +39,12 @@ void Function::adjustSlotCount(const Code &code)
     case Code::Jeq:
     case Code::Jne:
     case Code::Return:
-    case Code::Closure:
     case Code::SetUpval:
         break;
     case Code::Call:
-        nslots = code.arg1 + code.result > nslots ? code.arg1 + code.result : nslots;
+        n = code.arg2 > code.result ? code.arg2 : code.result;
+        n = n > 0 ? n : 0;
+        nslots = code.arg1 + n > nslots ? code.arg1 + n : nslots;
     case Code::Move:
     case Code::Add:
     case Code::Sub:
@@ -52,6 +54,7 @@ void Function::adjustSlotCount(const Code &code)
     case Code::Mod:
     case Code::Minus:
     case Code::GetUpval:
+    case Code::Closure:
         nslots = code.result + 1 > nslots ? code.result + 1 : nslots;
         break;
     case Code::Nil:
@@ -83,7 +86,7 @@ std::size_t Function::addConstant(const Operand & a)
     return constants.size() - 1;
 }
 
-const Operand & Function::getConstant(std::size_t i) const
+const Operand & Function::getConstant(int i) const
 {
     return constants[i];
 

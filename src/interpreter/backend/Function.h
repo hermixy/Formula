@@ -84,7 +84,7 @@ public:
     void reverseCodes(int start, int end);
 
     std::size_t addConstant(const Operand & c);
-    const Operand & getConstant(std::size_t i) const;
+    const Operand & getConstant(int i) const;
 
     std::size_t addLocalSymbolInfo(const LocalSymbolInfo &localInfo);
 

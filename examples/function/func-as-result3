@@ -1,0 +1,11 @@
+-- Define a function
+foo = function () 
+	return 
+		function (a,b) 
+			return a+b
+		end
+	end
+
+-- Call the function
+a = foo()
+b = a(5,8)

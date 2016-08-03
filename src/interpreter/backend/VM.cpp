@@ -31,11 +31,9 @@ VM::VM(Function *mfunction): mfunction(mfunction)
 void VM::run()
 {
     try {
-        std::cout << "----------BEGIN OF PROGRAM----------\n";
+        std::cout << "--------BEGINNING OF PROGRAM--------\n";
         showRuntimeStack();
         while (!calls.empty()) {
-            std::cout << "\n-----JUMP/RETURN TO SUBROUTINE-----\n";
-            showRuntimeStack();
             bool finish = false;
             while (!finish) {
                 auto function = getCurrentClosure()->getPrototype();
@@ -122,6 +120,8 @@ void VM::run()
                 } // switch
                 if(!calls.empty())
                     showRuntimeStack();
+                else
+                    std::cout << "----------END OF PROGRAM----------\n";
             } // while
         } // while
     }
@@ -139,7 +139,7 @@ void VM::callClosure(int i, int nparams, int nresults)
 
     auto function = R(i).closure->getPrototype();
     auto code = function->getBaseCode();
-    registers.resize(calls.back().topIndex + function->slotCount());
+    registers.resize(calls.back().topIndex + 256);
     //std::cout << "capacity:" << registers.capacity() << std::endl;
 
     int closureIndex = calls.back().baseIndex + i;
@@ -195,17 +195,13 @@ void VM::showRuntimeStack() const
     std::cout << "Closure Index:" << calls.back().closureIndex
               << "\tBase Index:" << calls.back().baseIndex
               << "\tTop Index:" << calls.back().topIndex << std::endl;
-    int i = 0;
-    for (auto a: registers) {
-        if( i >= calls.back().topIndex)
-            break;
 
+    for (int i = 0; i < calls.back().topIndex; ++i) {
         if(i == calls.back().baseIndex)
             std::cout << "base->";
         else if(i == calls.back().closureIndex)
             std::cout << "func->";
-        std::cout << "\t" << a << std::endl;
-        i++;
+        std::cout << "\t" << registers[i] << std::endl;
     }
     std::cout <<"=============================" << std::endl;
 }

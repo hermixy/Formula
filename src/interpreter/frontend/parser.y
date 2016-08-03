@@ -115,7 +115,7 @@ return_statement
 	{
 		int n = count($2);
 		// Move the last value to tempraries. Note that the first n-1 $3ession values and function call result(s) are  already temparies.
-		if($2->prev->info->index >= function->localSymbolCount() || $2->prev->info->index < 0) {
+		if($2->prev->info->index < function->localSymbolCount()) {
 			int temp = function->newTemp();
 			function->addCode(Code(Code::Move, $2->prev->info->index, 0, temp), @1.first_line);
 			$2->prev->info->index = temp;
