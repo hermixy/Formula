@@ -1,0 +1,13 @@
+-- calling foo, and then bar, the upvalue b is 
+-- in stack slot untill foo is returned
+function foo()
+	a, b, c = 1, 2, 3
+	function bar()
+		b = 10
+		return b
+	end
+
+	return bar()
+end
+
+a = foo()

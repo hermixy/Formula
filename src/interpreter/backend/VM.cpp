@@ -96,10 +96,10 @@ void VM::run()
                     calls.back().adjustTopIndex(result);
                     break;
                 case Code::SetUpval:
-                    U(result) = RK(arg1);
+                    setUpvalue(result, RK(arg1));
                     break;
                 case Code::GetUpval:
-                    R(result) = U(arg1);
+                    R(result) = getUpvalue(arg1);
                     calls.back().adjustTopIndex(result);
                     break;
                 case Code::Call:
@@ -158,11 +158,17 @@ Closure *VM::createClosure(Function * function)
     auto count = function->upvalueCount();
     for (std::size_t i = 0; i < count; ++i) {
         auto upvalueInfo = function->getUpvalueInfo(i);
+
         if (upvalueInfo->isParentLocal) {
-            closure->addUpvalue(calls.back().baseIndex + upvalueInfo->registerIndex);
+            int registerIndex = calls.back().baseIndex + upvalueInfo->registerIndex;
+            int index;
+            if((index = findUpvalue(registerIndex)) == -1) {
+                index = addUpvalue(registerIndex);
+            }
+            closure->addUpvalueIndex(index);
         } else {
             // Get upvalue from parent upvalue list
-            closure->addUpvalue(getCurrentClosure()->getUpvalue(upvalueInfo->registerIndex));
+            closure->addUpvalueIndex(getCurrentClosure()->getUpvalueIndex(upvalueInfo->registerIndex));
         }
     }
     return closure;
@@ -178,13 +184,22 @@ const Closure *VM::getClosure(std::size_t i) const
 void VM::callReturn(int start, int n)
 {
     int closureIndex = calls.back().closureIndex;
+    int baseIndex = calls.back().baseIndex;
+    int topIndex = calls.back().topIndex;
     for(int i = 0; i < n; ++i) {
         registers[closureIndex+i] = R(start+i);
     }
+    if(n == -1) {
+        for(int i = 0; baseIndex+start+i < topIndex; ++i) {
+            registers[closureIndex+i] = R(start+i);
+        }
+    }
+    closeUpvalues();
     calls.pop_back();
     // Set nils
     if(calls.empty()) return;
-    int topIndex = calls.back().topIndex;
+    topIndex = calls.back().topIndex;
+    if(n!=-1)
     for(int i = closureIndex+n; i < topIndex; i++)
         registers[i].setNil();
 }
@@ -204,4 +219,40 @@ void VM::showRuntimeStack() const
         std::cout << "\t" << registers[i] << std::endl;
     }
     std::cout <<"=============================" << std::endl;
+}
+
+// Check whether upvalue already exisited
+int VM::findUpvalue(int registerIndex)
+{
+    int n = upvalues.size();
+    for(int i = n-1; i >= 0; --i) {
+        if(upvalues[i]->isopen && upvalues[i]->index == registerIndex)
+            return i;
+    }
+    return -1;
+}
+
+// Add upvalue
+int VM::addUpvalue(int registerIndex)
+{
+    Upvalue *upvalue = new Upvalue();
+    upvalue->isopen = true;
+    upvalue->index = registerIndex;
+    upvalues.push_back(upvalue);
+    return upvalues.size()-1;
+}
+
+// Close upvalues assocciated to current closure
+void VM::closeUpvalues()
+{
+    int n = upvalues.size();
+    int baseIndex = calls.back().baseIndex;
+    for(int i = n-1; i >= 0; --i) {
+        if(upvalues[i]->isopen && upvalues[i]->index >= baseIndex) {
+            upvalues[i]->isopen = false;
+            upvalues[i]->value = registers[upvalues[i]->index];
+        } else {
+            break;
+        }
+    }
 }

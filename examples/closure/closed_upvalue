@@ -1,0 +1,12 @@
+-- the following example is from 'The Implementation of Lua 5.0'
+-- the upvalue 'a' is not exisited in stack slot when calling add2 or add3
+
+function add (x)
+	return function(y) return x+y end
+end
+
+add2 = add(2)
+a = add2(6)
+
+add3 = add(3)
+b = add3(7)

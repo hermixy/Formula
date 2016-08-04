@@ -49,7 +49,7 @@ typedef void* yyscan_t;
 %lex-param   { yyscan_t scanner }
 %parse-param { Function *function}
 %parse-param { yyscan_t scanner }
- 
+
 %union {
 	double real;	// real constant
 	int integer;	// integer constant
@@ -87,6 +87,7 @@ typedef void* yyscan_t;
 %type <info> unary_expression
 %type <info> exponential_expression
 %type <info> postfix_expression
+%type <info> function_call 
 %type <info> primary_expression
 %type <info> constant
  
@@ -108,6 +109,30 @@ statement_list
 statement
 	: assignment_statement
 	| return_statement
+	| TOKEN_FUNCTION TOKEN_IDENTIFIER '(' optional_parameter_list ')'
+	{
+		int funcindex = function->createChild("anonymous");
+		int temp = function->localSymbolCount();
+		function->addLocalSymbolInfo(LocalSymbolInfo(string($2.str, $2.len), temp));
+		function->addCode(Code(Code::Closure, funcindex, 0, temp), @1.first_line);
+		function = function->getChild(funcindex);
+		//$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionDefinition, temp));
+		if($4) { // Define all the parameters
+			int m = count($4);
+			auto param = $4;
+			for(int i = 0; i < m; ++i) {
+				function->addParam(LocalSymbolInfo(param->info->name, i));
+				param = param->next;
+			}
+		}
+		destroy($4);
+	}
+	statement_list TOKEN_END
+	{
+		function->addCode(Code(Code::Return, 0, 0, 0), @8.first_line);
+		function = function->getParent();
+		//$$ = $<info>6;
+	}
 	;
 
 return_statement
@@ -122,9 +147,9 @@ return_statement
 		}
 
 		if($2->prev->info->type == SemanticInfo::FunctionCall) {
-			function->addCode(Code(Code::Return, $2->info->index, -1, 0), @1.last_line);
+			function->addCode(Code(Code::Return, $2->info->index, -1, 0), @1.first_line);
 		} else {
-			function->addCode(Code(Code::Return, $2->info->index, n, 0), @1.last_line);
+			function->addCode(Code(Code::Return, $2->info->index, n, 0), @1.first_line);
 		}
 		destroy($2);
 	}
@@ -242,7 +267,7 @@ function_definition
 	}
 	statement_list TOKEN_END
 	{
-		function->addCode(Code(Code::Return, 0, 0, 0), @1.last_line);
+		function->addCode(Code(Code::Return, 0, 0, 0), @7.first_line);
 		function = function->getParent();
 		$$ = $<info>5;
 	}
@@ -335,7 +360,11 @@ exponential_expression
 
 postfix_expression
 	: primary_expression
-	| postfix_expression 
+	| function_call
+	;
+
+function_call
+	: postfix_expression 
 	{
 		// Move the last expression value of $1 to temperaries
 		// If the last expression of $1 is FunctionCall, set its expected results count to 1

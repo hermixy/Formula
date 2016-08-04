@@ -157,7 +157,10 @@ ostream & operator <<(ostream & os, const Function & f)
     // Upvalues
     os << "upvalues (" << f.upvalueInfos.size() << ") for " << &f << ":" << std::endl;
     for (auto i = 0; i < f.upvalueInfos.size(); ++i) {
-        os << "\t" << i << "\t" << f.upvalueInfos[i].name << std::endl;
+        os << "\t" << i << "\t" << f.upvalueInfos[i].name
+           << "\t" << f.upvalueInfos[i].isParentLocal
+           << "\t" << f.upvalueInfos[i].registerIndex
+           << std::endl;
     }
 
     for(auto child: f.children)
@@ -226,7 +229,7 @@ int Function::newTemp()
     return ntemps++;
 }
 
-int Function::getUpvalue(string name) const
+int Function::findUpvalue(string name) const
 {
     int i = 0;
     for(auto &up : upvalueInfos) {
@@ -237,13 +240,13 @@ int Function::getUpvalue(string name) const
     return -1;
 }
 
+// Reverse search
 int Function::getLocalSymbol(string name) const
 {
-    int i = 0;
-    for(auto &local : locals) {
-        if(local.name == name)
+    int n = locals.size();
+    for(int i = n-1; i >= 0; --i) {
+        if(locals[i].name == name)
             return i;
-        i++;
     }
     return -1;
 }
@@ -251,7 +254,7 @@ int Function::getLocalSymbol(string name) const
 int Function::getParentUpvalue(string name) const
 {
     if(parent)
-        return parent->getUpvalue(name);
+        return parent->findUpvalue(name);
     return -1;
 }
 

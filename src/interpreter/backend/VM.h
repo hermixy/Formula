@@ -52,6 +52,8 @@ public:
     ~VM() {
         for(auto closure : closures)
             delete closure;
+        for(auto upvalue : upvalues)
+            delete upvalue;
     }
 
     // Execute the code
@@ -87,13 +89,21 @@ private:
     }
 
     // Upvalue reference at index i of current function/closure
-    Operand & U(std::size_t i) {
-        return registers[getCurrentClosure()->getUpvalue(i)];
+    void setUpvalue(int i, const Operand &value) {
+        i = getCurrentClosure()->getUpvalueIndex(i);
+        if(upvalues[i]->isopen)
+            registers[upvalues[i]->index] = value;
+        else
+            upvalues[i]->value = value;
     }
 
     // Upvalue reference at index i of current function/closure
-    const Operand & U(std::size_t i) const {
-        return registers[getCurrentClosure()->getUpvalue(i)];
+    Operand getUpvalue(int i) const {
+        i = getCurrentClosure()->getUpvalueIndex(i);
+        if(upvalues[i]->isopen)
+            return registers[upvalues[i]->index];
+        else
+            return upvalues[i]->value;
     }
 
     // Get current closure, i.e. activation record
@@ -112,6 +122,15 @@ private:
         return registers.empty() ? nullptr : &registers[0];
     }
 
+    // Check whether upvalue already exisited
+    int findUpvalue(int registerIndex);
+
+    // Add upvalue
+    int addUpvalue(int registerIndex);
+
+    // Close upvalues assocciated to current closure
+    void closeUpvalues();
+
     // Main fuction, starting point of the virtual machine
     Function *mfunction;
     // Runtime stack, registers of each function is one part of the stack.
@@ -120,6 +139,8 @@ private:
     std::vector<CallInfo> calls;
     // Closures
     std::vector<Closure *> closures;
+    // Upvalues
+    std::vector<Upvalue *> upvalues;
 };
 
 #endif /* VM_H */

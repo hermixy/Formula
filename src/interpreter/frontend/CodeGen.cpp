@@ -17,7 +17,9 @@
 #include "Function.h"
 #include "Semantic.h"
 #include <string>
+#include <vector>
 using std::string;
+using std::vector;
 
 bool retrieveSymbol(Function *function, SemanticInfo *info)
 {
@@ -25,21 +27,41 @@ bool retrieveSymbol(Function *function, SemanticInfo *info)
     if((index = function->getLocalSymbol(info->name)) != -1) {
         info->index = index;
         info->type = SemanticInfo::LocalSymbol;
-    } else if((index = function->getUpvalue(info->name)) != -1) {
+        return true;
+    } else if((index = function->findUpvalue(info->name)) != -1) {
         info->index = index;
         info->type = SemanticInfo::Upvalue;
-    } else if((index = function->getParentLocalSymbol(info->name)) != -1) {
-        index = function->addUpvalueInfo(UpvalueInfo(info->name, true, index));
-        info->index = index;
-        info->type = SemanticInfo::Upvalue;
-    } else if((index = function->getParentLocalSymbol(info->name)) != -1) {
-        index = function->addUpvalueInfo(UpvalueInfo(info->name, false, index));
-        info->index = index;
-        info->type = SemanticInfo::Upvalue;
-    } else {
-        return false;
+        return true;
     }
-    return true;
+
+    vector<Function *> funcs;
+    funcs.push_back(function);
+    auto p = function->getParent();
+    while(p) {
+        if((index = p->getLocalSymbol(info->name)) != -1) {
+            int i = funcs.size()-1;
+            index = funcs[i]->addUpvalueInfo(UpvalueInfo(info->name, true, index));
+            --i;
+            for(; i >= 0; --i)
+                index = funcs[i]->addUpvalueInfo(UpvalueInfo(info->name, false, index));
+
+            info->index = index;
+            info->type = SemanticInfo::Upvalue;
+            return true;
+        } else if((index = p->findUpvalue(info->name)) != -1) {
+            for(int i = funcs.size()-1; i >= 0; --i)
+                index = funcs[i]->addUpvalueInfo(UpvalueInfo(info->name, false, index));
+
+            info->index = index;
+            info->type = SemanticInfo::Upvalue;
+            return true;
+        } else {
+            funcs.push_back(p);
+            p = p->getParent();
+        }
+    }
+
+    return false;
 }
 
 bool enterSymbol(Function *function, SemanticInfo *info)

@@ -1,0 +1,15 @@
+-- Note: the interpreter searches symbols reversely
+
+-- define the first foo
+foo = 1
+
+-- define the second foo
+function foo()
+	return 2
+end
+
+-- call the second foo
+a = foo()
+
+-- modify the second foo
+foo = 3

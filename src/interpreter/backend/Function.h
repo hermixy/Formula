@@ -121,7 +121,7 @@ public:
         return &upvalueInfos[index];
     }
 
-    int getUpvalue(string name) const;
+    int findUpvalue(string name) const;
     int getLocalSymbol(string name) const;
     int getParentUpvalue(string name) const;
     int getParentLocalSymbol(string name) const;
@@ -187,6 +187,18 @@ private:
     Function *parent;
 };
 
+// Upvalues for closures
+struct Upvalue {
+    bool isopen;
+    union {
+        int index;      // the stack index (when open)
+        Operand value;  // the value (when closed)
+    };
+
+    Upvalue(): isopen(false) {}
+    ~Upvalue() {}
+};
+
 // All runtime function are closures, this class object pointer to a
 // prototype Function object and its upvalues.
 class Closure {
@@ -209,19 +221,19 @@ public:
     }
 
     // Get upvalue by index
-    int getUpvalue(std::size_t index) const {
-        return upvalues[index];
+    int getUpvalueIndex(std::size_t i) const {
+        return upvalueIndexes[i];
     }
 
-    void addUpvalue(int upvalue) {
-        upvalues.push_back(upvalue);
+    void addUpvalueIndex(int i) {
+        upvalueIndexes.push_back(i);
     }
 
 private:
     // Function prototype
     Function * prototype;
     // Upvalues indexes in runtime stack
-    std::vector<int> upvalues;
+    std::vector<int> upvalueIndexes;
 };
 
 #endif /* FUNCTION_H */

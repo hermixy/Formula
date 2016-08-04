@@ -76,7 +76,7 @@ bool parse(Function *function, FILE *fp)
 
 void showMessage() 
 {
-    std::cout << "Formula 2.0.0\nCalculating arithmetic expressions.\n";
+    std::cout << "Formula 2.0.1\nCopyright (C) 2015-2016, kylinsage@gmail.com\n";
 }
 
 int main(void)
