@@ -18,11 +18,18 @@
 
 class Function;
 class SemanticInfo;
+class Semantic;
 
 // Retrieve defined symbol, either local symbol or upvalue
 bool retrieveSymbol(Function *function, SemanticInfo *info);
 // Enter new symbol which is not defined
 bool enterSymbol(Function *function, SemanticInfo *info);
+
+// Move the last expression value of s to temperaries.
+// All expression except the last expression of s are already temperaries.
+// If the last expression of s is FunctionCall, set its expected results count to 1
+// Note that function call is temperary value. Constants and locals will be moved to tempraries.
+void makeSequence(Function *function, Semantic *exprs, int lineno);
 
 void codegenAsgnStmt(Function *function, SemanticInfo *target, int index, int lineno);
 

@@ -72,6 +72,18 @@ bool enterSymbol(Function *function, SemanticInfo *info)
     return true;
 }
 
+void makeSequence(Function *function, Semantic *exprs, int lineno)
+{
+    if(exprs->prev->info->type == SemanticInfo::FunctionCall) {
+        function->backpatch(exprs->prev->info->codeIndex, 1);
+        function->setTemp(exprs->prev->info->index+1);
+    } else if(exprs->prev->info->index < function->localSymbolCount()) {
+        int temp = function->newTemp();
+        function->addCode(Code(Code::Move, exprs->prev->info->index, 0, temp), lineno);
+        exprs->prev->info->index = temp;
+    }
+}
+
 void codegenAsgnStmt(Function *function, SemanticInfo *target, int index, int lineno)
 {
     if(target->type == SemanticInfo::Upvalue) {

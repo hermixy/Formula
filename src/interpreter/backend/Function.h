@@ -87,6 +87,7 @@ public:
     const Operand & getConstant(int i) const;
 
     std::size_t addLocalSymbolInfo(const LocalSymbolInfo &localInfo);
+    std::size_t addLocalSymbolInfo(string name);
 
     std::size_t addParam(const LocalSymbolInfo &paramInfo);
 

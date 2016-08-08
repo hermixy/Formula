@@ -99,6 +99,13 @@ std::size_t Function::addLocalSymbolInfo(const LocalSymbolInfo &localInfo)
     return locals.size() - 1;
 }
 
+std::size_t Function::addLocalSymbolInfo(string name)
+{
+    locals.push_back(LocalSymbolInfo(name, locals.size()));
+    ntemps++;
+    return locals.size() - 1;
+}
+
 std::size_t Function::addParam(const LocalSymbolInfo &paramInfo) 
 {
     locals.push_back(paramInfo);

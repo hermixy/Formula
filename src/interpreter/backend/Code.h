@@ -50,6 +50,9 @@ static const string opdesc[] = {
     "RETURN",
 
     "NIL",
+
+    "FORPREP",
+    "FORLOOP",
 };
 
 struct Code {
@@ -84,6 +87,9 @@ struct Code {
         Return,		/* A B - -- return R(A), ... ,R(A+B-1) */
 
         Nil,        /* A B - -- R(A), ..., R(A+B-1) = Nil */
+
+        ForPrep,    /* A - C -- */
+        ForLoop,    /* A - C -- */
     };
 
     // three-address code

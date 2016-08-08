@@ -1,0 +1,4 @@
+sum = 0
+for i = sum*1-sum/2+2, 10 do
+	sum = sum + i 
+end

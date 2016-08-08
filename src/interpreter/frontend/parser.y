@@ -68,11 +68,15 @@ typedef void* yyscan_t;
  
 %token TOKEN_RETURN
 %token TOKEN_FUNCTION
+%token TOKEN_FOR
+%token TOKEN_DO
 %token TOKEN_END
 %token <real> TOKEN_REAL
 %token <integer> TOKEN_INTEGER
 %token <id> TOKEN_IDENTIFIER
  
+%type <info> for_range 
+%type <info> range_expression 
 %type <info> target_list 
 %type <info> target
 %type <info> expression_list 
@@ -108,6 +112,7 @@ statement_list
 
 statement
 	: assignment_statement
+	| iteration_statement
 	| return_statement
 	| TOKEN_FUNCTION TOKEN_IDENTIFIER '(' optional_parameter_list ')'
 	{
@@ -152,6 +157,61 @@ return_statement
 			function->addCode(Code(Code::Return, $2->info->index, n, 0), @1.first_line);
 		}
 		destroy($2);
+	}
+	;
+
+iteration_statement
+	: TOKEN_FOR TOKEN_IDENTIFIER '=' for_range 
+	{
+		function->addLocalSymbolInfo(string($2.str, $2.len));
+		function->shrinkTemp();
+
+		int start = function->addCode(Code(Code::ForPrep, $4->prev->info->index, 0, -1), @1.first_line);
+		$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::Expression, start));
+	}
+	TOKEN_DO statement_list TOKEN_END
+	{
+		int start = $<info>5->info->index;
+		int end = function->addCode(Code(Code::ForLoop, $4->info->index, 0, start+1), @1.first_line);
+		function->backpatch(start, end);
+		destroy($4);
+	}
+
+for_range
+	: range_expression
+	{
+		int c = function->addConstant(Operand(1));
+		int temp = function->newTemp();
+		function->addCode(Code(Code::Move, -c, 0, temp), @1.first_line);
+
+		function->addLocalSymbolInfo("(for_step)");
+		function->shrinkTemp();
+		$$ = $1;
+	}
+	| range_expression ',' expression
+	{
+		makeSequence(function, $3, @3.first_line);
+		function->addLocalSymbolInfo("(for_step)");
+		function->shrinkTemp();
+		$$ = $1;
+		destroy($3);
+	}
+	;
+
+range_expression
+	: expression ',' 
+	{
+		makeSequence(function, $1, @1.first_line);
+		function->addLocalSymbolInfo("(for_start)");
+		function->shrinkTemp();
+	}
+	expression 
+	{
+		makeSequence(function, $4, @4.first_line);
+		function->addLocalSymbolInfo("(for_end)");
+		function->shrinkTemp();
+		$$ = $1;
+		destroy($4);
 	}
 	;
 
@@ -223,17 +283,7 @@ expression_list
 	: expression
 	| expression_list ',' 
 	{
-		// Move the last expression value of $1 to temperaries
-		// If the last expression of $1 is FunctionCall, set its expected results count to 1
-		// Note that function call is temperary value. Constants and locals will be moved to tempraries.
-		if($1->prev->info->type == SemanticInfo::FunctionCall) {
-			function->backpatch($1->prev->info->codeIndex, 1);
-			function->setTemp($1->prev->info->index+1);
-		} else if($1->prev->info->index < function->localSymbolCount()) {
-			int temp = function->newTemp();
-			function->addCode(Code(Code::Move, $1->prev->info->index, 0, temp), @1.first_line);
-			$1->prev->info->index = temp;
-		}
+		makeSequence(function, $1, @1.first_line);
 	}
 	expression 
 	{
@@ -369,17 +419,8 @@ function_call
 		// Move the last expression value of $1 to temperaries
 		// If the last expression of $1 is FunctionCall, set its expected results count to 1
 		// Note that function call is temperary value. Constants and locals will be moved to tempraries.
-		int temp;
-		if($1->prev->info->type == SemanticInfo::FunctionCall) {
-			function->backpatch($1->prev->info->codeIndex, 1);
-			function->setTemp($1->prev->info->index+1);
-			temp = $1->prev->info->index;
-		} else if($1->prev->info->index < function->localSymbolCount()) {
-			temp = function->newTemp();
-			function->addCode(Code(Code::Move, $1->prev->info->index, 0, temp), @1.first_line);
-			$1->prev->info->index = temp;
-		}
-		$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionCall, temp, -1)); // to be filled later
+		makeSequence(function, $1, @1.first_line);
+		$<info>$ = new Semantic(new SemanticInfo(SemanticInfo::FunctionCall, $1->info->index, -1)); // to be filled later
 	}
 	'(' optional_argument_list ')'
 	{

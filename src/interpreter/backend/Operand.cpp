@@ -116,6 +116,21 @@ bool operator >(const Operand & left, const Operand & right)
     }
 }
 
+bool operator <(const Operand & left, const Operand & right)
+{
+    return !(left == right || left > right);
+}
+
+bool operator >=(const Operand & left, const Operand & right)
+{
+    return left == right || left > right;
+}
+
+bool operator <=(const Operand & left, const Operand & right)
+{
+    return !(left > right);
+}
+
 Operand operator +(const Operand & left, const Operand & right)
 {
     Operand result;

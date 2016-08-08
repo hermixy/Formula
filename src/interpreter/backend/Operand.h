@@ -77,6 +77,9 @@ public:
     friend bool operator ==(const Operand & left, const Operand & right);
     friend bool operator !=(const Operand & left, const Operand & right);
     friend bool operator >(const Operand & left, const Operand & right);
+    friend bool operator <(const Operand & left, const Operand & right);
+    friend bool operator >=(const Operand & left, const Operand & right);
+    friend bool operator <=(const Operand & left, const Operand & right);
     friend Operand operator +(const Operand & left, const Operand & right);
     friend Operand operator -(const Operand & left, const Operand & right);
     friend Operand operator *(const Operand & left, const Operand & right);

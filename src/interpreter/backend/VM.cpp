@@ -114,6 +114,15 @@ void VM::run()
                         R(i).setNil();
                     calls.back().adjustTopIndex(arg1 + arg2 - 1);
                     break;
+                case Code::ForPrep:
+                    R(arg1+3) = R(arg1) - R(arg1+2);
+                    calls.back().pc = baseCode + result;
+                    break;
+                case Code::ForLoop:
+                    R(arg1+3) = R(arg1+3) + R(arg1+2);
+                    if((R(arg1) <= R(arg1+3) && R(arg1+3) <= R(arg1+1)) ||(R(arg1) >= R(arg1+3) && R(arg1+3) >= R(arg1+1)))
+                        calls.back().pc = baseCode + result;
+                    break;
                 default:
                     throw "Invalid opcode";
                     break;
