@@ -31,6 +31,9 @@ bool enterSymbol(Function *function, SemanticInfo *info);
 // Note that function call is temperary value. Constants and locals will be moved to tempraries.
 void makeSequence(Function *function, Semantic *exprs, int lineno);
 
+// Translate as boolean expression
+void codegenBoolean(Function *function, Semantic *exp, int lineno);
+
 void codegenAsgnStmt(Function *function, SemanticInfo *target, int index, int lineno);
 
 #endif /* CODEGEN_H */

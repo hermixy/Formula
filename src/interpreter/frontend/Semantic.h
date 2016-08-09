@@ -29,6 +29,7 @@ static const char *desc[] = {
     "FunctionDefinition",
     "LocalSymbol",
     "Upvalue",
+    "Boolean",
 };
 
 struct SemanticInfo {
@@ -40,12 +41,15 @@ struct SemanticInfo {
         FunctionDefinition,
         LocalSymbol,
         Upvalue,
+        Boolean,
     };
 
     SemanticType type;
     int index;
     int codeIndex;
     string name;		// identifier
+    int tc; // truelist
+    int fc; // falselist
 
     SemanticInfo(SemanticType type, int index)
         : type(type), index(index) {
@@ -59,6 +63,11 @@ struct SemanticInfo {
 
     SemanticInfo(SemanticType type, string name)
         : type(type), name(name) {
+        std::cout << "++ Create semantic information: " << this << " (" << desc[type] << ")" << std::endl;
+    }
+
+    SemanticInfo(int tc, int fc)
+        : type(SemanticInfo::Boolean), tc(tc), fc(fc) {
         std::cout << "++ Create semantic information: " << this << " (" << desc[type] << ")" << std::endl;
     }
 

@@ -204,6 +204,11 @@ void Function::backpatch(int codelist, int result)
     codes[i].result = result;
 }
 
+void Function::backpatch(int codelist)
+{
+    backpatch(codelist, codeSize());
+}
+
 // Allocate temporary register index for binary expression result
 int Function::newTemp(int index1, int index2)
 {

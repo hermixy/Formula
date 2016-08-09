@@ -66,6 +66,16 @@ typedef void* yyscan_t;
 	destroy($$);
 } <info>
  
+%token OPERATOR_GE
+%token OPERATOR_GT
+%token OPERATOR_LE
+%token OPERATOR_LT
+%token OPERATOR_EQ
+%token OPERATOR_NE
+%token OPERATOR_AND
+%token OPERATOR_NOT
+%token OPERATOR_OR
+
 %token TOKEN_RETURN
 %token TOKEN_FUNCTION
 %token TOKEN_FOR
@@ -85,6 +95,10 @@ typedef void* yyscan_t;
 %type <info> parameter 
 %type <info> optional_argument_list 
 %type <info> expression
+%type <info> logical_or_expression
+%type <info> logical_and_expression
+%type <info> equality_expression
+%type <info> relational_expression
 %type <info> function_definition 
 %type <info> additive_expression
 %type <info> multiplicative_expression
@@ -221,10 +235,22 @@ assignment_statement
 		int m = count($1);
 		int n = count($3);
 		// Move the last value to tempraries. Note that the first n-1 $3ession values and function call result(s) are  already temparies.
-		if(n > 1 && $3->prev->info->type != SemanticInfo::FunctionCall) {
-			int temp = function->newTemp();
-			function->addCode(Code(Code::Move, $3->prev->info->index, 0, temp), @1.first_line);
-			$3->prev->info->index = temp;
+		if((n > 1 && $3->prev->info->type != SemanticInfo::FunctionCall) || $3->prev->info->type == SemanticInfo::Boolean) {
+			if($3->prev->info->type != SemanticInfo::Boolean) {
+				int temp = function->newTemp();
+				function->addCode(Code(Code::Move, $3->prev->info->index, 0, temp), @1.first_line);
+				$3->prev->info->index = temp;
+			} else {
+				std::cout << "bool\n";
+				int temp = function->newTemp();
+				int tend = function->addCode(Code(Code::Bool, 1, 0, temp), @1.first_line);
+				int jend = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+				int fend = function->addCode(Code(Code::Bool, 0, 0, temp), @1.first_line);
+				function->backpatch($3->prev->info->tc, tend);
+				function->backpatch($3->prev->info->fc, fend);
+				function->backpatch(jend);
+				$3->prev->info->index = temp;
+			}
 		}
 		
 		// When the last expression is function call, then backpatch it
@@ -293,7 +319,7 @@ expression_list
 	;
 
 expression
-	: additive_expression
+	: logical_or_expression
 	| function_definition
 	;
 
@@ -343,7 +369,97 @@ parameter
 		$$ = new Semantic(new SemanticInfo(SemanticInfo::Identifier, string($1.str, $1.len)));
 	}
 	;
-	
+
+logical_or_expression
+	: logical_and_expression
+	| logical_or_expression[L] OPERATOR_OR 
+	{
+		codegenBoolean(function, $L, @1.first_line);
+		function->backpatch($L->info->fc);
+	}
+	logical_and_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->fc = $R->info->fc;
+		$$->info->tc = function->merge($L->info->tc, $R->info->tc);
+		destroy($L);
+		destroy($R);
+	}
+	;
+
+logical_and_expression
+	: equality_expression
+	| logical_and_expression[L] OPERATOR_AND 
+	{
+		codegenBoolean(function, $L, @1.first_line);
+		function->backpatch($L->info->tc);
+	}
+	equality_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->tc = $R->info->tc;
+		$$->info->fc = function->merge($L->info->fc, $R->info->fc);
+		destroy($L);
+		destroy($R);
+	}
+	;
+
+equality_expression
+	: relational_expression
+	| equality_expression[L] OPERATOR_EQ relational_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->tc = function->addCode(Code(Code::Jeq, $L->info->index, $R->info->index, -1), @1.first_line);
+		$$->info->fc = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+		destroy($L);
+		destroy($R);
+	}
+	| equality_expression[L] OPERATOR_NE relational_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->tc = function->addCode(Code(Code::Jne, $L->info->index, $R->info->index, -1), @1.first_line);
+		$$->info->fc = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+		destroy($L);
+		destroy($R);
+	}
+	;
+
+relational_expression
+	: additive_expression
+	| relational_expression[L] OPERATOR_GE additive_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->tc = function->addCode(Code(Code::Jge, $L->info->index, $R->info->index, -1), @1.first_line);
+		$$->info->fc = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+		destroy($L);
+		destroy($R);
+	}
+	| relational_expression[L] OPERATOR_GT additive_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->tc = function->addCode(Code(Code::Jgt, $L->info->index, $R->info->index, -1), @1.first_line);
+		$$->info->fc = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+		destroy($L);
+		destroy($R);
+	}
+	| relational_expression[L] OPERATOR_LE additive_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->tc = function->addCode(Code(Code::Jle, $L->info->index, $R->info->index, -1), @1.first_line);
+		$$->info->fc = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+		destroy($L);
+		destroy($R);
+	}
+	| relational_expression[L] OPERATOR_LT additive_expression[R]
+	{
+		$$ = new Semantic(new SemanticInfo(-1, -1));
+		$$->info->tc = function->addCode(Code(Code::Jlt, $L->info->index, $R->info->index, -1), @1.first_line);
+		$$->info->fc = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+		destroy($L);
+		destroy($R);
+	}
+	;
+
 additive_expression
 	: multiplicative_expression
 	| additive_expression[L] '+' multiplicative_expression[R]
@@ -392,6 +508,14 @@ unary_expression
 		int temp = function->newTemp($2->info->index);
 		function->addCode(Code(Code::Minus, $2->info->index, 0, temp), @2.first_line);
 		$2->info->index = temp;
+		$$ = $2;
+	}
+	| OPERATOR_NOT exponential_expression
+	{
+		codegenBoolean(function, $2, @1.first_line);
+		int temp = $2->info->tc;
+		$2->info->tc = $2->info->fc;
+		$2->info->fc = temp;
 		$$ = $2;
 	}
 	;

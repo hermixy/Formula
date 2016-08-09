@@ -78,9 +78,20 @@ void makeSequence(Function *function, Semantic *exprs, int lineno)
         function->backpatch(exprs->prev->info->codeIndex, 1);
         function->setTemp(exprs->prev->info->index+1);
     } else if(exprs->prev->info->index < function->localSymbolCount()) {
-        int temp = function->newTemp();
-        function->addCode(Code(Code::Move, exprs->prev->info->index, 0, temp), lineno);
-        exprs->prev->info->index = temp;
+        if(exprs->prev->info->type != SemanticInfo::Boolean) {
+            int temp = function->newTemp();
+            function->addCode(Code(Code::Move, exprs->prev->info->index, 0, temp), lineno);
+            exprs->prev->info->index = temp;
+        } else {
+            int temp = function->newTemp();
+            int tend = function->addCode(Code(Code::Bool, 1, 0, temp), lineno);
+            int jend = function->addCode(Code(Code::Jmp, 0, 0, -1), lineno);
+            int fend = function->addCode(Code(Code::Bool, 0, 0, temp), lineno);
+            function->backpatch(exprs->prev->info->tc, tend);
+            function->backpatch(exprs->prev->info->fc, fend);
+            function->backpatch(jend);
+            exprs->prev->info->index = temp;
+        }
     }
 }
 
@@ -93,5 +104,14 @@ void codegenAsgnStmt(Function *function, SemanticInfo *target, int index, int li
             function->addCode(Code(Code::Move, index, 0, target->index), lineno);
     } else {
         throw "Invalid assignment statement";
+    }
+}
+
+void codegenBoolean(Function *function, Semantic *exp, int lineno)
+{
+    if(exp->info->type != SemanticInfo::Boolean) {
+        exp->info->type = SemanticInfo::Boolean;
+        exp->info->tc = function->addCode(Code(Code::Jnz, exp->info->index, 0, -1), lineno);
+        exp->info->fc = function->addCode(Code(Code::Jmp, 0, 0, -1), lineno);
     }
 }

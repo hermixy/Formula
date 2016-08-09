@@ -87,6 +87,26 @@ void VM::run()
                     if (RK(arg1) > RK(arg2))
                         calls.back().pc = baseCode + result;
                     break;
+                case Code::Jge:
+                    if (RK(arg1) >= RK(arg2))
+                        calls.back().pc = baseCode + result;
+                    break;
+                case Code::Jlt:
+                    if (RK(arg1) < RK(arg2))
+                        calls.back().pc = baseCode + result;
+                    break;
+                case Code::Jle:
+                    if (RK(arg1) <= RK(arg2))
+                        calls.back().pc = baseCode + result;
+                    break;
+                case Code::Jeq:
+                    if (RK(arg1) == RK(arg2))
+                        calls.back().pc = baseCode + result;
+                    break;
+                case Code::Jne:
+                    if (RK(arg1) != RK(arg2))
+                        calls.back().pc = baseCode + result;
+                    break;
                 case Code::Move:
                     R(result) = RK(arg1);
                     calls.back().adjustTopIndex(result);
@@ -122,6 +142,10 @@ void VM::run()
                     R(arg1+3) = R(arg1+3) + R(arg1+2);
                     if((R(arg1) <= R(arg1+3) && R(arg1+3) <= R(arg1+1)) ||(R(arg1) >= R(arg1+3) && R(arg1+3) >= R(arg1+1)))
                         calls.back().pc = baseCode + result;
+                    break;
+                case Code::Bool:
+                    R(result) = Operand(arg1);
+                    calls.back().adjustTopIndex(result);
                     break;
                 default:
                     throw "Invalid opcode";

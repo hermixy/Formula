@@ -64,6 +64,16 @@ WS          [ \t]*
 "end"		{ return TOKEN_END;	}
 "return"	{ return TOKEN_RETURN;	}
 
+"not"	{ return OPERATOR_NOT;	}
+"and"	{ return OPERATOR_AND;	}
+"or"	{ return OPERATOR_OR;	}
+">"		{ return OPERATOR_GT;	}
+">="	{ return OPERATOR_GE;	}
+"<"		{ return OPERATOR_LT;	}
+"<="	{ return OPERATOR_LE;	}
+"=="	{ return OPERATOR_EQ;	}
+"~="	{ return OPERATOR_NE;	}
+
 [_a-zA-Z][_a-zA-Z0-9]*			{ 
 	yylval->id.str = yytext;
 	yylval->id.len = yyleng;
