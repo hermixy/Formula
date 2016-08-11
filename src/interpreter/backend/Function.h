@@ -56,12 +56,18 @@ struct LocalSymbolInfo {
     }
 };
 
+// Symbol scope
+struct SymbolScope {
+    std::vector<LocalSymbolInfo> locals;
+};
+
 // Function prototype class, all runtime functions(closures) reference this
 // class object. This class contains some static information generated after parsing.
 class Function {
 public:
     Function(string name):name(name), nparams(0), nresults(0), nslots(0), ntemps(0), parent(nullptr) {
         constants.push_back(Operand());
+        scopes.push_back(SymbolScope());
     }
 
     Function(const Function &) = delete;
@@ -76,7 +82,7 @@ public:
     Code *getBaseCode();
     void clearCodes() {
         codes.clear();
-        ntemps = locals.size();
+        ntemps = localSymbolCount();
     }
     std::size_t codeSize()const;
     Code *getCode(std::size_t i);
@@ -109,7 +115,10 @@ public:
     }
 
     int localSymbolCount() const {
-        return locals.size();
+        int count = 0;
+        for(int i = scopes.size()-1; i >=0; --i)
+            count += scopes[i].locals.size();
+        return count;
     }
 
     std::size_t addUpvalueInfo(const UpvalueInfo &upvalueInfo);
@@ -158,7 +167,16 @@ public:
         return ntemps;
     }
     void shrinkTemp() {
-        ntemps = locals.size();
+        ntemps = localSymbolCount();
+    }
+
+    void openScope() {
+        scopes.push_back(SymbolScope());
+    }
+
+    void closeScope() {
+        scopes.pop_back();
+        shrinkTemp();
     }
 
 private:
@@ -178,8 +196,8 @@ private:
     int nslots;
     // Children functions
     std::vector<Function *> children;
-    // Local symbols
-    std::vector<LocalSymbolInfo> locals;
+    // Local symbol scopes
+    std::vector<SymbolScope> scopes;
     // Upvalues
     std::vector<UpvalueInfo> upvalueInfos;
     // Temporaries

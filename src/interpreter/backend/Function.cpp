@@ -94,24 +94,24 @@ const Operand & Function::getConstant(int i) const
 
 std::size_t Function::addLocalSymbolInfo(const LocalSymbolInfo &localInfo) 
 {
-    locals.push_back(localInfo);
+    scopes.back().locals.push_back(localInfo);
     ntemps++;
-    return locals.size() - 1;
+    return localSymbolCount() - 1;
 }
 
 std::size_t Function::addLocalSymbolInfo(string name)
 {
-    locals.push_back(LocalSymbolInfo(name, locals.size()));
+    scopes.back().locals.push_back(LocalSymbolInfo(name, localSymbolCount()));
     ntemps++;
-    return locals.size() - 1;
+    return localSymbolCount() - 1;
 }
 
 std::size_t Function::addParam(const LocalSymbolInfo &paramInfo) 
 {
-    locals.push_back(paramInfo);
+    scopes.back().locals.push_back(paramInfo);
     nparams++;
     ntemps++;
-    return locals.size() - 1;
+    return localSymbolCount() - 1;
 }
 
 std::size_t Function::addUpvalueInfo(const UpvalueInfo &upvalueInfo)
@@ -140,7 +140,7 @@ ostream & operator <<(ostream & os, const Function & f)
     os << f.nparams << " params, "
        << f.nslots << " slots, "
        << f.upvalueInfos.size() << " upvalues, "
-       << f.locals.size() << " locals, "
+       << f.scopes[0].locals.size() << " locals, "
        << f.constantCount() << " constants, "
        << f.children.size() << " functions"
        << std::endl;
@@ -156,9 +156,9 @@ ostream & operator <<(ostream & os, const Function & f)
         os << "\t" << i << "\t" << f.constants[i] << std::endl;
 
     // Locals
-    os << "locals (" << f.locals.size() << ") for " << &f << ":" << std::endl;
-    for (auto i = 0; i < f.locals.size(); ++i)
-        os << "\t" << i << "\t" << f.locals[i].name << std::endl;
+    os << "locals (" << f.scopes[0].locals.size() << ") for " << &f << ":" << std::endl;
+    for (auto i = 0; i < f.scopes[0].locals.size(); ++i)
+        os << "\t" << i << "\t" << f.scopes[0].locals[i].name << std::endl;
 
 
     // Upvalues
@@ -213,7 +213,7 @@ void Function::backpatch(int codelist)
 int Function::newTemp(int index1, int index2)
 {
     // Attention, locals.size() is an unsigned integer
-    int count = locals.size();
+    int count = localSymbolCount();
     if(index1 >= count && index2 >= count)
         return index1 < index2 ? index1 : index2;
     else if(index1 >= count)
@@ -228,7 +228,7 @@ int Function::newTemp(int index1, int index2)
 int Function::newTemp(int index)
 {
     // Attention, locals.size() is an unsigned integer
-    int count = locals.size();
+    int count = localSymbolCount();
     if(index >= count)
         return index;
     else
@@ -255,10 +255,14 @@ int Function::findUpvalue(string name) const
 // Reverse search
 int Function::getLocalSymbol(string name) const
 {
-    int n = locals.size();
-    for(int i = n-1; i >= 0; --i) {
-        if(locals[i].name == name)
-            return i;
+    int index = localSymbolCount();
+    int m = scopes.size();
+    for(int i = m-1; i >= 0; --i) {
+        for(int j = scopes[i].locals.size()-1; j >= 0; --j) {
+            --index;
+            if(scopes[i].locals[j].name == name)
+                return index;
+        }
     }
     return -1;
 }

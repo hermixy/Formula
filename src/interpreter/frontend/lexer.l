@@ -60,6 +60,10 @@ WS          [ \t]*
 
 "function"	{ return TOKEN_FUNCTION;	}
 "for"		{ return TOKEN_FOR;	}
+"while"		{ return TOKEN_WHILE;	}
+"if"		{ return TOKEN_IF;	}
+"then"		{ return TOKEN_THEN;	}
+"else"		{ return TOKEN_ELSE;	}
 "do"		{ return TOKEN_DO;	}
 "end"		{ return TOKEN_END;	}
 "return"	{ return TOKEN_RETURN;	}

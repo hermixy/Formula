@@ -58,6 +58,7 @@ typedef void* yyscan_t;
 		int len;
 	}id;	// identifier 
 	struct Semantic *info;
+	int codeid; // code index
 }
 
 /* The %destructor directive defines code that is called when a symbol is automatically discarded during error recovery. */
@@ -79,12 +80,17 @@ typedef void* yyscan_t;
 %token TOKEN_RETURN
 %token TOKEN_FUNCTION
 %token TOKEN_FOR
+%token TOKEN_WHILE
+%token TOKEN_IF
+%token TOKEN_ELSE
+%token TOKEN_THEN
 %token TOKEN_DO
 %token TOKEN_END
 %token <real> TOKEN_REAL
 %token <integer> TOKEN_INTEGER
 %token <id> TOKEN_IDENTIFIER
  
+%type <info> if_condition 
 %type <info> for_range 
 %type <info> range_expression 
 %type <info> target_list 
@@ -127,6 +133,7 @@ statement_list
 statement
 	: assignment_statement
 	| iteration_statement
+	| selection_statement
 	| return_statement
 	| TOKEN_FUNCTION TOKEN_IDENTIFIER '(' optional_parameter_list ')'
 	{
@@ -174,6 +181,37 @@ return_statement
 	}
 	;
 
+selection_statement
+	: if_condition statement_list TOKEN_END
+	{
+		function->closeScope();
+		function->backpatch($1->info->fc);
+	}
+	| if_condition statement_list TOKEN_ELSE 
+	{
+		function->closeScope();
+		$1->info->tc = function->addCode(Code(Code::Jmp, 0, 0, -1), @1.first_line);
+		function->backpatch($1->info->fc);
+		function->openScope();
+	}
+	statement_list TOKEN_END
+	{
+		function->closeScope();
+		function->backpatch($1->info->tc);
+	}
+	;
+
+if_condition
+	: TOKEN_IF expression TOKEN_THEN 
+	{
+		codegenBoolean(function, $2, @1.first_line);
+		$$ = $2;
+		std::cout << "cond: tc: " << $2->info->tc << " fc: " << $2->info->fc << std::endl;
+		function->openScope();
+		function->backpatch($2->info->tc);
+	}
+	;
+
 iteration_statement
 	: TOKEN_FOR TOKEN_IDENTIFIER '=' for_range 
 	{
@@ -188,8 +226,26 @@ iteration_statement
 		int start = $<info>5->info->index;
 		int end = function->addCode(Code(Code::ForLoop, $4->info->index, 0, start+1), @1.first_line);
 		function->backpatch(start, end);
+		function->closeScope();
 		destroy($4);
 	}
+	| TOKEN_WHILE 
+	{
+		$<codeid>$ = function->codeSize();
+	}
+	expression 
+	{
+		codegenBoolean(function, $3, @1.first_line);
+		function->openScope();
+		function->backpatch($3->info->tc);
+	}
+	TOKEN_DO statement_list TOKEN_END
+	{
+		function->closeScope();
+		function->addCode(Code(Code::Jmp, 0, 0, $<codeid>2), @6.last_line);
+		function->backpatch($3->info->fc);
+	}
+	;
 
 for_range
 	: range_expression
@@ -215,6 +271,7 @@ for_range
 range_expression
 	: expression ',' 
 	{
+		function->openScope();
 		makeSequence(function, $1, @1.first_line);
 		function->addLocalSymbolInfo("(for_start)");
 		function->shrinkTemp();
@@ -274,10 +331,21 @@ assignment_statement
 			target = target->next;
 		}
 
-		// Assign from back to front
+		// initialize
 		target = $1->prev;
+		int cnt = m;
 		int index = $3->info->index+m-1;
-		for(int i = 0; i < m; ++i) {
+		// Assign the last target
+		// if the last expression is temperary, rewrite code
+		if($3->prev->info->index >= function->localSymbolCount()) {
+			auto code = function->getCode(function->codeSize()-1);
+			code->result = target->info->index;
+			cnt--; 
+			index--;
+		}
+
+		// Assign from back to front
+		for(int i = 0; i < cnt; ++i) {
 			codegenAsgnStmt(function, target->info, index, @1.first_line);
 			index--;
 			target = target->prev;
