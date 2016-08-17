@@ -16,10 +16,15 @@
 #include "VM.h"
 #include <iostream>
 
-VM::VM(Function *mfunction): mfunction(mfunction)
+VM::VM()
 {
     // Initialize registers
     registers.resize(MINIMUM_REGISTER_SIZE);
+}
+
+void VM::load(Function *mfunc)
+{
+    mfunction = mfunc;
     registers.resize(mfunction->slotCount() + 1);
     // Create closure for main function
     auto closure = createClosure(mfunction);

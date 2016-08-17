@@ -82,6 +82,7 @@ void showMessage()
 int main(void)
 {
     Function function("main");
+    VM vm;
     string input;
     showMessage();
     std::cout << ">>";
@@ -90,12 +91,12 @@ int main(void)
         FILE *fp = fopen(input.c_str(), "r");
         if(fp && parse(&function, fp)) {
             std::cout << function << std::endl;
-            VM vm(&function);
+            vm.load(&function);
             vm.run();
             fclose(fp);
         } else if(parse(&function, input.c_str())) {
             std::cout << function << std::endl;
-            VM vm(&function);
+            vm.load(&function);
             vm.run();
         }
         std::cout << ">>";

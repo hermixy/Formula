@@ -48,7 +48,7 @@ struct CallInfo {
 
 class VM {
 public:
-    VM(Function * mfunction);
+    VM();
     ~VM() {
         for(auto closure : closures)
             delete closure;
@@ -60,6 +60,8 @@ public:
     void run();
     // Print runtime stack
     void showRuntimeStack() const;
+    // Load main function
+    void load(Function *mfunc);
 
 private:
     // Call function/closure at register i(relative to current base index)

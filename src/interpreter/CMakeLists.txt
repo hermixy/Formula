@@ -1,4 +1,4 @@
-project(formula)
+project(interpreter)
 cmake_minimum_required(VERSION 2.8)
 
 # Debug setting
@@ -63,7 +63,7 @@ include_directories(. frontend backend)
 
 # Building CLI interpreter 
 aux_source_directory(. SOURCES)
-add_executable(formula
+add_executable(formula-cli
 	${BISON_Parser_OUTPUTS}
 	${FLEX_Lexer_OUTPUTS}
 	frontend/Semantic.cpp
